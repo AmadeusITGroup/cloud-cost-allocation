@@ -1,0 +1,25 @@
+@startuml
+
+cloud CloudResource as "cloud resource"
+
+[application1 service] <-down- [shared-application service]: transaction cost
+[application1 service] <-down- [container service]: container cost
+[application1 service] <-down- [monitoring service]: time-series cost
+
+[application2 service] <-down- [shared-application service]: transaction cost
+[application2 service] <-down- [container service]: container cost
+[application2 service] <-down- [monitoring service]: time-series cost
+
+[shared-application service] <-down- [container service]: container cost
+[shared-application service] <-down- [monitoring service]: time-series cost
+
+[monitoring service] <-down- [container service]: container cost
+[monitoring service] <-down- CloudResource: cloud cost
+
+[container service] <-down- CloudResource: cloud cost
+
+legend
+service -allocates its costs to-> another service
+end legend
+
+@enduml
