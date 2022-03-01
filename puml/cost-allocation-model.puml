@@ -8,7 +8,7 @@ class Instance
 Instance "n" -up-* "1" Service
 
 abstract CostItem {
-Cost: amortized, on-demand
+[Amortized/OnDemand]Cost
 Component
 Environment
 Partition
@@ -19,9 +19,11 @@ Instance "1" *-- "n" CostItem
 package "Service Cost Allocation Data" as CostAllocationCSV {
 
 class CostAllocationItem {
-ProviderTagSelector
 ProviderMeter[Name/Unit/Value][1/2/3/4/5]
+ProviderTagSelector: Key/Cost/CloudTagSelector
+ProviderCostAllocationType
 ProviderCostAllocationKey
+ProviderCostAllocationCloudTagSelector
 }
 
 class ProductCostItem {

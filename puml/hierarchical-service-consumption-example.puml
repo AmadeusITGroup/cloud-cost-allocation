@@ -1,25 +1,40 @@
 @startuml
 
-cloud CloudResource as "cloud resource"
+node B2cProduct as "B2c Product"
+node B2bProduct as "B2b Product"
 
-[application1 service] -down-> [shared-application service]: calls
-[application1 service] -down-> [container service]: runs on
-[application1 service] -down-> [monitoring service]: uses
+component WebService as "Web Service"
+component ReportingService as "Reporting Service"
+component HistoryService as "History Service"
+component MonitoringService as "Monitoring Service"
+component ContainerService as "Container Service"
 
-[application2 service] -down-> [shared-application service]: calls
-[application2 service] -down-> [container service]: runs on
-[application2 service] -down-> [monitoring service]: uses
+cloud CloudResource as "Cloud Resource"
 
-[shared-application service] -down-> [container service]: runs on
-[shared-application service] -down-> [monitoring service]: uses
+B2cProduct -down-> WebService: uses
+B2cProduct -down-> ReportingService: uses
 
-[monitoring service] -down-> [container service]: runs on
-[monitoring service] -down-> CloudResource: uses
+B2bProduct -down-> WebService: uses
+B2bProduct -down-> ReportingService: uses
 
-[container service] -down-> CloudResource: uses
+WebService -down-> HistoryService: calls
+WebService -down-> ContainerService: runs on
+WebService -down-> MonitoringService: uses
+
+ReportingService -down-> HistoryService: calls
+ReportingService -down-> ContainerService: runs on
+ReportingService -down-> MonitoringService: uses
+
+HistoryService -down-> ContainerService: runs on
+HistoryService -down-> MonitoringService: uses
+
+MonitoringService -down-> ContainerService: runs on
+MonitoringService -down-> CloudResource: uses
+
+ContainerService -down-> CloudResource: uses
 
 legend
-service -consumes -> another service
+-> consumes
 end legend
 
 @enduml
