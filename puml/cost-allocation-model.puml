@@ -27,7 +27,6 @@ ProviderCostAllocationCloudTagSelector
 }
 
 class ProductCostItem {
-Product
 ProductMeter[Name/Unit/Value]
 }
 
@@ -43,9 +42,9 @@ ConsumerTags
 Instance "1"--> "n" CostAllocationItem
 
 ConsumerCostItem =up=|> CostItem
-CostAllocationItem "0,1" --> "1" ConsumerCostItem
+CostAllocationItem "1" *-down- "0,1" ConsumerCostItem
 
-ProductCostItem "1" <-down- "0,1" CostAllocationItem
+ProductCostItem "0,1" -down-* "1" CostAllocationItem
 ProductCostItem "n"-up-* "1" Product
 
 class CloudProviderCostItem {
