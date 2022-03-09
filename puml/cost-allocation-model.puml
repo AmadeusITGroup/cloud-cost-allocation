@@ -8,7 +8,9 @@ class Instance
 Instance "n" -up-* "1" Service
 
 abstract CostItem {
+Date
 [Amortized/OnDemand]Cost
+Currency
 Component
 Environment
 Partition
@@ -47,9 +49,9 @@ CostAllocationItem "1" *-down- "0,1" ConsumerCostItem
 ProductCostItem "0,1" -down-* "1" CostAllocationItem
 ProductCostItem "n"-up-* "1" Product
 
-class CloudProviderCostItem {
-Cost line: ResourceId, BillingMeter, ...
+class CloudCostItem {
+Line (from cloud provider cost data)
 }
-CloudProviderCostItem =up=|> CostItem
+CloudCostItem =up=|> CostItem
 
 @enduml
