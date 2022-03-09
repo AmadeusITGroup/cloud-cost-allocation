@@ -1,0 +1,5 @@
+Date,ProviderService,ProviderInstance,ProviderTagSelector,ProviderMeterName1,ProviderMeterValue1,ProviderMeterUnit1,ProviderCostAllocationKey,ConsumerService,ConsumerInstance,ConsumerComponent,ConsumerEnvironment,ConsumerPartition,ConsumerTags
+2022-03-09,container,west_europe,component == 'compute',cpu,1.5,core,1.5,web,web7,apache,prd,7,cost_center:1234
+2022-03-09,container,west_europe,component == 'compute',cpu,0.5,core,0.5,monitoring,,grafana,,,
+2022-03-09,container,west_europe,component == 'storage',disk,1,gb,1,monitoring,,prometheus,,,
+2022-03-09,monitoring,,,time-serie,10,ts,10,web,web7,,,
