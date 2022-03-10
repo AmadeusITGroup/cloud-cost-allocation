@@ -26,7 +26,7 @@ class TestCloudCostItem(cloud_cost_allocation.cloud_cost_allocator.CloudCostItem
         self.cloud = ""
 
     def add_cloud_resource_id_tag (self, cloud_resource_id: str):
-        self.tags['cloud_resource_id'] = cloud_resource_id
+        self.tags['cloud_resource_id'] = cloud_resource_id.lower()
 
     def write_to_csv_row(self, csv_row: dict[str]) -> None:
         cloud_cost_allocation.cloud_cost_allocator.CloudCostItem.write_to_csv_row(self, csv_row)
