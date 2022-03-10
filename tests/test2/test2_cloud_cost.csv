@@ -1,0 +1,8 @@
+Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,ReservationId
+03/10/2022,"""service"": ""Application1""",10,EUR,Usage,ResourceId1,
+03/10/2022,"""service"": ""Application2""",1000,EUR,Usage,ResourceId2,
+03/10/2022,"""service"": ""Application3"",""trx"": ""x""",2,EUR,Usage,ResourceId3x,
+03/10/2022,"""service"": ""Application3"",""trx"": ""y""",60,EUR,Usage,ResourceId3y,
+03/10/2022,"""service"": ""Application3"",""trx"": ""z""",600,EUR,Usage,ResourceId3z,
+03/10/2022,"""service"": ""Application3""",140,EUR,Usage,ResourceId3xyz,
+03/10/2022,"""service"": ""Application4""",110,EUR,Usage,ResourceId4,
