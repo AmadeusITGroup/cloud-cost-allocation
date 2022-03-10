@@ -1,12 +1,12 @@
-from cloud_cost_allocator import CloudCostAllocator, CostItemFactory
-from azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
+import cloud_cost_allocation.cloud_cost_allocator
+import cloud_cost_allocation.azure_ea_amortized_cost_reader
 from configparser import ConfigParser
-from logging import error
+import logging
 from optparse import OptionParser
-from sys import exit
-from typing import TextIO
+import sys
 
-def cmd():
+
+def main():
     """
     Command line
     """
@@ -23,13 +23,13 @@ def cmd():
 
     # Check options
     if not options.config:
-        error("--config is mandatory")
+        logging.error("--config is mandatory")
         sys.exit(1)
     if not options.cost:
-        error("--cost is mandatory")
+        logging.error("--cost is mandatory")
         sys.exit(1)
     if not options.output:
-        error("--output is mandatory")
+        logging.error("--output is mandatory")
         sys.exit(1)
 
     # Read config
@@ -37,7 +37,7 @@ def cmd():
     config.read(options.config)
 
     # Create cost item factory
-    cost_item_factory = CostItemFactory()
+    cost_item_factory = cloud_cost_allocation.cloud_cost_allocator.CostItemFactory()
 
     # Read costs
     cost_items = []
@@ -45,27 +45,32 @@ def cmd():
         cost_list = cost.split(':')
         cost_type = cost_list[0]
         cost_text_io = open(cost_list[1], 'r')
-        if cost_type == 'AzureEaAmortizedCost':
-            cloud_cost_reader = AzureEaAmortizedCostReader(config)
-            cloud_cost_reader.read(cost_items, cost_item_factory, cost_text_io)
+        if cost_type == 'AzEaAmo':
+            cloud_cost_reader = cloud_cost_allocation.azure_ea_amortized_cost_reader.AzureEaAmortizedCostReader\
+                (cost_item_factory, config)
+            cloud_cost_reader.read(cost_items, cost_text_io)
         else:
-            error("Unknown cost type: " + cost_type)
+            logging.error("Unknown cost type: " + cost_type)
             sys.exit(1)
         cost_text_io.close()
 
     # Read keys
-    cloud_cost_allocator = CloudCostAllocator(config)
+    cloud_cost_allocator = cloud_cost_allocation.cloud_cost_allocator.CloudCostAllocator(cost_item_factory, config)
     for key in options.keys:
         cost_allocation_key_text_io = open(key, 'r')
-        cloud_cost_allocator.read_cost_allocation_key(cost_items, cost_item_factory, cost_allocation_key_text_io):
+        cloud_cost_allocator.read_cost_allocation_key(cost_items, cost_allocation_key_text_io)
         cost_allocation_key_text_io.close()
 
     # Allocate costs
     if not cloud_cost_allocator.allocate(cost_items):
-        error("Cost allocation failed")
+        logging.error("Cost allocation failed")
         exit(1)
 
     # Write allocated costs
     allocated_cost_text_io = open(options.output, 'w', newline='')
     cloud_cost_allocator.write_allocated_cost(allocated_cost_text_io)
     allocated_cost_text_io.close()
+
+
+if __name__ == '__main__':
+    main()
