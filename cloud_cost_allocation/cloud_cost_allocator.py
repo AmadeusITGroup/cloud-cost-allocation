@@ -14,55 +14,12 @@ class CostItem(object):
     Represents a cost item, which comes either from the cloud or from a cost allocation key
     """
 
-    # CSV header
-    csv_header = [
-        'Date',
-        'Service',
-        'Instance',
-        'Component',
-        'Environment',
-        'Partition',
-        'Tags',
-        'AmortizedCost',
-        'OnDemandCost',
-        'Currency',
-        'ProviderService',
-        'ProviderInstance',
-        'ProviderTagSelector',
-        'ProviderMeterName1',
-        'ProviderMeterUnit1',
-        'ProviderMeterValue1',
-        'ProviderMeterName2',
-        'ProviderMeterUnit2',
-        'ProviderMeterValue2',
-        'ProviderMeterName3',
-        'ProviderMeterUnit3',
-        'ProviderMeterValue3',
-        'ProviderMeterName4',
-        'ProviderMeterUnit4',
-        'ProviderMeterValue4',
-        'ProviderMeterName5',
-        'ProviderMeterUnit5',
-        'ProviderMeterValue5',
-        'ProviderCostAllocationType',
-        'ProviderCostAllocationKey',
-        'ProviderCostAllocationCloudTagSelector',
-        'Product',
-        'ProductAmortizedCost',
-        'ProductOnDemandCost',
-        'ProductMeterName',
-        'ProductMeterUnit',
-        'ProductMeterValue'
-    ]
-
     __slots__ = (
         # Fields
         'date_str',                             # type: str
         'service',                              # type: str
         'instance',                             # type: str
-        'component',                            # type: str
-        'environment',                          # type: str
-        'partition',                            # type: str
+        'dimensions',                           # type: dict[str,str]
         'tags',                                 # type: dict[str,str]
         'amortized_cost',                       # type: float
         'on_demand_cost',                       # type: float
@@ -77,9 +34,7 @@ class CostItem(object):
         self.date_str = ""
         self.service = ""
         self.instance = ""
-        self.component = ""
-        self.environment = ""
-        self.partition = ""
+        self.dimensions = {}
         self.tags = {}
         self.cost = 0.0
         self.amortized_cost = 0.0
@@ -139,9 +94,8 @@ class CostItem(object):
         csv_row['Date'] = self.date_str
         csv_row['Service'] = self.service
         csv_row['Instance'] = self.instance
-        csv_row['Component'] = self.component
-        csv_row['Environment'] = self.environment
-        csv_row['Partition'] = self.partition
+        for dimension_key, dimension_value in self.dimensions.items():
+            csv_row[dimension_key] = dimension_value
         tags_str = StringIO()
         for key, value in self.tags.items():
             tags_str.write(key + ":" + value + ",")
@@ -240,26 +194,14 @@ class CloudCostItem(CostItem):
         if not self.instance:  # Default value: same as service
             self.instance = self.service
 
-        # Component
-        for component_tag_key in config['TagKey']['Component'].split(","):
-            component_tag_key = component_tag_key.strip()
-            if component_tag_key in self.tags:
-                self.component = self.tags[component_tag_key].strip().lower()
-                break
-
-        # Environment
-        for environment_tag_key in config['TagKey']['Environment'].split(","):
-            environment_tag_key = environment_tag_key.strip()
-            if environment_tag_key in self.tags:
-                self.environment = self.tags[environment_tag_key].strip().lower()
-                break
-
-        # Partition
-        for partition_tag_key in config['TagKey']['Partition'].split(","):
-            partition_tag_key = partition_tag_key.strip()
-            if partition_tag_key in self.tags:
-                self.partition = self.tags[partition_tag_key].strip().lower()
-                break
+        # Dimensions
+        for dimension in config['General']['Dimensions'].split(","):
+            dimension = dimension.strip()
+            for dimension_tag_key in config['TagKey'][dimension].split(","):
+                dimension_tag_key = dimension_tag_key.strip()
+                if dimension_tag_key in self.tags:
+                    self.dimensions[dimension] = self.tags[dimension_tag_key].strip().lower()
+                    break
 
     def visit(self,
               visited_service_instance_list: list['ServiceInstance'],
@@ -460,9 +402,7 @@ class CloudConsumerCostItem(ConsumerCostItem):
         self.cloud_cost_item = cloud_cost_item
         self.service = consumer_service
         self.instance = consumer_instance
-        self.component = cloud_cost_item.component
-        self.environment = cloud_cost_item.environment
-        self.partition = cloud_cost_item.partition
+        self.dimensions = cloud_cost_item.dimensions
         self.tags = cloud_cost_item.tags
         self.provider_service = cloud_cost_item.service
         self.provider_instance = cloud_cost_item.instance
@@ -799,38 +739,6 @@ class CloudCostAllocator(object):
     Allocates cloud costs from a cloud cost reader and cost allocation key readers
     """
 
-    # CSV header for cost allocation key
-    cost_allocation_key_csv_header = [
-        'Date',
-        'ProviderService',
-        'ProviderInstance',
-        'ProviderTagSelector',
-        'ProviderMeterName1',
-        'ProviderMeterUnit1',
-        'ProviderMeterValue1',
-        'ProviderMeterName2',
-        'ProviderMeterUnit2',
-        'ProviderMeterValue2',
-        'ProviderMeterName3',
-        'ProviderMeterUnit3',
-        'ProviderMeterValue3',
-        'ProviderMeterName4',
-        'ProviderMeterUnit4',
-        'ProviderMeterValue4',
-        'ProviderMeterName5',
-        'ProviderMeterUnit5',
-        'ProviderMeterValue5',
-        'ProviderCostAllocationType',
-        'ProviderCostAllocationKey',
-        'ProviderCostAllocationCloudTagSelector',
-        'ConsumerService',
-        'ConsumerInstance',
-        'ConsumerComponent',
-        'ConsumerEnvironment',
-        'ConsumerPartition',
-        'ConsumerTags',
-    ]
-
     __slots__ = (
         'config',             # type: ConfigParser
         'cost_item_factory',  # type: CostItemFactory
@@ -903,6 +811,85 @@ class CloudCostAllocator(object):
         self.allocate_aux(False, True)
 
         return True
+
+    def get_cost_allocation_key_csv_header(self):
+        csv_header = [
+            'Date',
+            'ProviderService',
+            'ProviderInstance',
+            'ProviderTagSelector',
+            'ProviderMeterName1',
+            'ProviderMeterUnit1',
+            'ProviderMeterValue1',
+            'ProviderMeterName2',
+            'ProviderMeterUnit2',
+            'ProviderMeterValue2',
+            'ProviderMeterName3',
+            'ProviderMeterUnit3',
+            'ProviderMeterValue3',
+            'ProviderMeterName4',
+            'ProviderMeterUnit4',
+            'ProviderMeterValue4',
+            'ProviderMeterName5',
+            'ProviderMeterUnit5',
+            'ProviderMeterValue5',
+            'ProviderCostAllocationType',
+            'ProviderCostAllocationKey',
+            'ProviderCostAllocationCloudTagSelector',
+            'ConsumerService',
+            'ConsumerInstance',
+            'ConsumerTags',
+        ]
+
+        # Add dimensions
+        for dimension in self.config['General']['Dimensions'].split(","):
+            csv_header.extend(['Consumer' + dimension.strip()])
+
+        return csv_header
+
+    def get_cost_item_csv_header(self):
+        csv_header = [
+            'Date',
+            'Service',
+            'Instance',
+            'Tags',
+            'AmortizedCost',
+            'OnDemandCost',
+            'Currency',
+            'ProviderService',
+            'ProviderInstance',
+            'ProviderTagSelector',
+            'ProviderMeterName1',
+            'ProviderMeterUnit1',
+            'ProviderMeterValue1',
+            'ProviderMeterName2',
+            'ProviderMeterUnit2',
+            'ProviderMeterValue2',
+            'ProviderMeterName3',
+            'ProviderMeterUnit3',
+            'ProviderMeterValue3',
+            'ProviderMeterName4',
+            'ProviderMeterUnit4',
+            'ProviderMeterValue4',
+            'ProviderMeterName5',
+            'ProviderMeterUnit5',
+            'ProviderMeterValue5',
+            'ProviderCostAllocationType',
+            'ProviderCostAllocationKey',
+            'ProviderCostAllocationCloudTagSelector',
+            'Product',
+            'ProductAmortizedCost',
+            'ProductOnDemandCost',
+            'ProductMeterName',
+            'ProductMeterUnit',
+            'ProductMeterValue'
+        ]
+
+        # Add dimensions
+        for dimension in self.config['General']['Dimensions'].split(","):
+            csv_header.extend([dimension.strip()])
+
+        return csv_header
 
     def get_service_instance(self, service: str, instance: str) -> ServiceInstance:
         service_instance_id = ServiceInstance.get_id(service, instance)
@@ -996,13 +983,10 @@ class CloudCostAllocator(object):
                     consumer_cost_item.instance = consumer_cost_item.service
             elif not consumer_cost_item.instance:  # Same as service by default
                 consumer_cost_item.instance = consumer_cost_item.service
-            # Set default values for service
-            if 'ConsumerComponent' in line:
-                consumer_cost_item.component = line['ConsumerComponent'].lower()
-            if 'ConsumerEnvironment' in line:
-                consumer_cost_item.environment = line['ConsumerEnvironment'].lower()
-            if 'ConsumerPartition' in line:
-                consumer_cost_item.partition = line['ConsumerPartition'].lower()
+            for dimension in self.config['General']['Dimensions'].split(','):
+                consumer_dimension = 'Consumer' + dimension.strip()
+                if consumer_dimension in line:
+                    consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
             if 'ConsumerTags' in line:
                 consumer_tags = line["ConsumerTags"]
                 if consumer_tags:
@@ -1061,7 +1045,7 @@ class CloudCostAllocator(object):
     def write_allocated_cost(self, allocated_cost_stream: TextIO) -> None:
 
         # Open CSV file and write header
-        writer = DictWriter(allocated_cost_stream, fieldnames=CostItem.csv_header, restval='', extrasaction='ignore')
+        writer = DictWriter(allocated_cost_stream, fieldnames=self.get_cost_item_csv_header(), restval='', extrasaction='ignore')
         writer.writeheader()
 
         # Process cost items

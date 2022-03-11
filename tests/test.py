@@ -52,9 +52,7 @@ class TestCloudCostAllocator(cloud_cost_allocation.cloud_cost_allocator.CloudCos
         # Add custom columns
         # - Cloud: the cloud provider name, filled for a cloud cost item
         # - IsFinalConsumption: value is Y if the cost item is a leave in the cost allocation graph, N otherwise
-        csv_header = []
-        csv_header.extend(cloud_cost_allocation.cloud_cost_allocator.CostItem.csv_header)
-        # Y if the cost item is a leave in the cost allocation graph
+        csv_header = self.get_cost_item_csv_header()
         csv_header.extend(['Cloud', 'IsFinalConsumption'])
 
         # pen CSV file and write header

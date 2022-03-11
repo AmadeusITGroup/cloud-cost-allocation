@@ -1,22 +1,22 @@
-Date,Service,Instance,Component,Environment,Partition,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderMeterName1,ProviderMeterUnit1,ProviderMeterValue1,ProviderMeterName2,ProviderMeterUnit2,ProviderMeterValue2,ProviderMeterName3,ProviderMeterUnit3,ProviderMeterValue3,ProviderMeterName4,ProviderMeterUnit4,ProviderMeterValue4,ProviderMeterName5,ProviderMeterUnit5,ProviderMeterValue5,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductMeterName,ProductMeterUnit,ProductMeterValue,Cloud,IsFinalConsumption
-2022-03-10,application1,application1,,,,"service:application1,cloud_resource_id:resourceid1,",10.0,10.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application1,application1,,,,,137.0,137.0,EUR,application1,application1,,A,trx,2,,,,,,,,,,,,,Key,2.0,,product1,4.0,4.0,X,trx,2,,Y
-2022-03-10,application1,application1,,,,,133.0,133.0,EUR,application2,application2,,B,trx,2,,,,,,,,,,,,,Key,2.0,,product1,111.0,111.0,X,,,,N
-2022-03-10,application1,application1,,,,,792.0,792.0,EUR,application1,application1,,A,trx,3,,,,,,,,,,,,,Key,3.0,,product1,6.0,6.0,Y,trx,3,,Y
-2022-03-10,application1,application1,,,,,786.0,786.0,EUR,application2,application2,,C,trx,3,,,,,,,,,,,,,Key,12.0,,product1,666.0,666.0,Y,,,,N
-2022-03-10,application2,application2,,,,"service:application2,cloud_resource_id:resourceid2,",1000.0,1000.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application2,application2,,,,,2.0,2.0,EUR,application3,application3,'trx' in globals() and trx == 'x',D,trx,2,,,,,,,,,,,,,Key,2.0,,product1,2.0,2.0,X,,,,N
-2022-03-10,application2,application2,,,,,20.0,20.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,2.0,,product1,20.0,20.0,X,,,,N
-2022-03-10,application2,application2,,,,,20.0,20.0,EUR,application4,application4,,E,trx,2,,,,,,,,,,,,,Key,2.0,,,,,,,,,N
-2022-03-10,application2,application2,,,,,60.0,60.0,EUR,application3,application3,'trx' in globals() and trx == 'y',D,trx,6,,,,,,,,,,,,,Key,6.0,,product1,60.0,60.0,Y,,,,N
-2022-03-10,application2,application2,,,,,60.0,60.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,6.0,,product1,60.0,60.0,Y,,,,N
-2022-03-10,application2,application2,,,,,30.0,30.0,EUR,application4,application4,,E,trx,3,,,,,,,,,,,,,Key,3.0,,,,,,,,,N
-2022-03-10,application2,application2,,,,,993.0,993.0,EUR,application2,application2,,B,trx,6,,,,,,,,,,,,,Key,6.0,,product2,333.0,333.0,Z,trx,6,,Y
-2022-03-10,application2,application2,,,,,600.0,600.0,EUR,application3,application3,'trx' in globals() and trx == 'z',D,trx,6,,,,,,,,,,,,,Key,6.0,,product2,600.0,600.0,Z,,,,N
-2022-03-10,application2,application2,,,,,60.0,60.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,6.0,,product2,60.0,60.0,Z,,,,N
-2022-03-10,application2,application2,,,,,60.0,60.0,EUR,application4,application4,,E,trx,6,,,,,,,,,,,,,Key,6.0,,,,,,,,,N
-2022-03-10,application3,application3,,,,"service:application3,trx:x,cloud_resource_id:resourceid3x,",2.0,2.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application3,application3,,,,"service:application3,trx:y,cloud_resource_id:resourceid3y,",60.0,60.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application3,application3,,,,"service:application3,trx:z,cloud_resource_id:resourceid3z,",600.0,600.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application3,application3,,,,"service:application3,cloud_resource_id:resourceid3xyz,",140.0,140.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
-2022-03-10,application4,application4,,,,"service:application4,cloud_resource_id:resourceid4,",110.0,110.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderMeterName1,ProviderMeterUnit1,ProviderMeterValue1,ProviderMeterName2,ProviderMeterUnit2,ProviderMeterValue2,ProviderMeterName3,ProviderMeterUnit3,ProviderMeterValue3,ProviderMeterName4,ProviderMeterUnit4,ProviderMeterValue4,ProviderMeterName5,ProviderMeterUnit5,ProviderMeterValue5,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductMeterName,ProductMeterUnit,ProductMeterValue,Component,Environment,Cloud,IsFinalConsumption
+2022-03-10,application1,application1,"service:application1,cloud_resource_id:resourceid1,",10.0,10.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application1,application1,,137.0,137.0,EUR,application1,application1,,A,trx,2,,,,,,,,,,,,,Key,2.0,,product1,4.0,4.0,X,trx,2,,,,Y
+2022-03-10,application1,application1,,133.0,133.0,EUR,application2,application2,,B,trx,2,,,,,,,,,,,,,Key,2.0,,product1,111.0,111.0,X,,,,,,N
+2022-03-10,application1,application1,,792.0,792.0,EUR,application1,application1,,A,trx,3,,,,,,,,,,,,,Key,3.0,,product1,6.0,6.0,Y,trx,3,,,,Y
+2022-03-10,application1,application1,,786.0,786.0,EUR,application2,application2,,C,trx,3,,,,,,,,,,,,,Key,12.0,,product1,666.0,666.0,Y,,,,,,N
+2022-03-10,application2,application2,"service:application2,cloud_resource_id:resourceid2,",1000.0,1000.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application2,application2,,2.0,2.0,EUR,application3,application3,'trx' in globals() and trx == 'x',D,trx,2,,,,,,,,,,,,,Key,2.0,,product1,2.0,2.0,X,,,,,,N
+2022-03-10,application2,application2,,20.0,20.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,2.0,,product1,20.0,20.0,X,,,,,,N
+2022-03-10,application2,application2,,20.0,20.0,EUR,application4,application4,,E,trx,2,,,,,,,,,,,,,Key,2.0,,,,,,,,,,,N
+2022-03-10,application2,application2,,60.0,60.0,EUR,application3,application3,'trx' in globals() and trx == 'y',D,trx,6,,,,,,,,,,,,,Key,6.0,,product1,60.0,60.0,Y,,,,,,N
+2022-03-10,application2,application2,,60.0,60.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,6.0,,product1,60.0,60.0,Y,,,,,,N
+2022-03-10,application2,application2,,30.0,30.0,EUR,application4,application4,,E,trx,3,,,,,,,,,,,,,Key,3.0,,,,,,,,,,,N
+2022-03-10,application2,application2,,993.0,993.0,EUR,application2,application2,,B,trx,6,,,,,,,,,,,,,Key,6.0,,product2,333.0,333.0,Z,trx,6,,,,Y
+2022-03-10,application2,application2,,600.0,600.0,EUR,application3,application3,'trx' in globals() and trx == 'z',D,trx,6,,,,,,,,,,,,,Key,6.0,,product2,600.0,600.0,Z,,,,,,N
+2022-03-10,application2,application2,,60.0,60.0,EUR,application3,application3,,,,,,,,,,,,,,,,,Key,6.0,,product2,60.0,60.0,Z,,,,,,N
+2022-03-10,application2,application2,,60.0,60.0,EUR,application4,application4,,E,trx,6,,,,,,,,,,,,,Key,6.0,,,,,,,,,,,N
+2022-03-10,application3,application3,"service:application3,trx:x,cloud_resource_id:resourceid3x,",2.0,2.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application3,application3,"service:application3,trx:y,cloud_resource_id:resourceid3y,",60.0,60.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application3,application3,"service:application3,trx:z,cloud_resource_id:resourceid3z,",600.0,600.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application3,application3,"service:application3,cloud_resource_id:resourceid3xyz,",140.0,140.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
+2022-03-10,application4,application4,"service:application4,cloud_resource_id:resourceid4,",110.0,110.0,EUR,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,az,N
