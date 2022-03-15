@@ -26,7 +26,8 @@ class TestCloudCostItem(cloud_cost_allocation.cloud_cost_allocator.CloudCostItem
         self.cloud = ""
 
     def add_cloud_resource_id_tag (self, cloud_resource_id: str):
-        self.tags['cloud_resource_id'] = cloud_resource_id.lower()
+        if cloud_resource_id:
+            self.tags['cloud_resource_id'] = cloud_resource_id.lower()
 
     def write_to_csv_row(self, csv_row: dict[str]) -> None:
         cloud_cost_allocation.cloud_cost_allocator.CloudCostItem.write_to_csv_row(self, csv_row)
@@ -84,6 +85,9 @@ class Test(unittest.TestCase):
     def test_test2(self):
         self.run_test('test2')
 
+    def test_test3(self):
+        self.run_test('test3')
+
     # Auxiliary method
     def run_test(self, test):
 
@@ -105,26 +109,26 @@ class Test(unittest.TestCase):
 
         # Read costs
         # TODO: when different readers are supported, select the reader and the cloud from the config
-        cost_items = []
+        cloud_cost_items = []
         cloud_cost_reader =\
             cloud_cost_allocation.azure_ea_amortized_cost_reader.AzureEaAmortizedCostReader(cost_item_factory, config)
         cloud_costs = open(directory + "/" + test + "/" + test + "_cloud_cost.csv", 'r')
-        cloud_cost_reader.read(cost_items, cloud_costs)
-        for cost_item in cost_items:
-            if isinstance(cost_item, TestCloudCostItem):
-                cost_item.cloud = 'az'
-                cost_item.add_cloud_resource_id_tag(cost_item.cloud_cost_line['ResourceId'])
+        cloud_cost_reader.read(cloud_cost_items, cloud_costs)
+        for cloud_cost_item in cloud_cost_items:
+            cloud_cost_item.cloud = 'az'
+            cloud_cost_item.add_cloud_resource_id_tag(cloud_cost_item.cloud_cost_line['ResourceId'])
         cloud_costs.close()
 
         # Read keys
+        consumer_cost_items = []
         cloud_cost_allocator = TestCloudCostAllocator(cost_item_factory, config)
         cost_allocation_keys = open(directory + "/" + test + "/" + test + "_cost_allocation_keys.csv", 'r')
-        cloud_cost_allocator.read_cost_allocation_key(cost_items, cost_allocation_keys)
+        cloud_cost_allocator.read_cost_allocation_key(consumer_cost_items, cost_allocation_keys)
         cost_allocation_keys.close()
 
         # Allocate costs
         assert_message = test + ": cost allocation failed"
-        self.assertTrue(cloud_cost_allocator.allocate(cost_items), assert_message)
+        self.assertTrue(cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items), assert_message)
 
         # Write allocated costs
         allocated_costs_filename = directory + "/" + test + "/" + test + "_out.csv"

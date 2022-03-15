@@ -124,36 +124,6 @@ class CloudCostItem(CostItem):
         self.cloud_on_demand_cost = 0.0
         self.currency = ""
 
-    def create_and_add_cloud_consumer_cost_item_from_tags(self,
-                                                          cost_items: list[CostItem],
-                                                          cost_item_factory: 'CostItemFactory',
-                                                          config: ConfigParser) -> None:
-
-        # Check consumer service
-        consumer_service = ""
-        for consumer_service_tag_key in config['TagKey']['ConsumerService'].split(","):
-            consumer_service_tag_key = consumer_service_tag_key.strip()
-            if consumer_service_tag_key in self.tags:
-                consumer_service = self.tags[consumer_service_tag_key].strip().lower()
-                break
-        if consumer_service and consumer_service != "-":  # Ignore "-"
-
-            # Consumer instance
-            consumer_instance = ""
-            for consumer_instance_tag_key in config['TagKey']['ConsumerInstance'].split(","):
-                consumer_instance_tag_key = consumer_instance_tag_key.strip()
-                if consumer_instance_tag_key in self.tags:
-                    consumer_instance = self.tags[consumer_instance_tag_key].strip().lower()
-                    break
-            if not consumer_instance:  # Use consumer service as default
-                consumer_instance = consumer_service
-
-            # Create and add cloud consumer cost item
-            cloud_consumer_cost_item = cost_item_factory.create_cloud_consumer_cost_item(self,
-                                                                                         consumer_service,
-                                                                                         consumer_instance)
-            cost_items.append(cloud_consumer_cost_item)
-
     def matches_cloud_tag_selector(self, cloud_tag_selector: str, provider_service: str) -> bool:
         eval_globals_dict = {}
         for key, value in self.tags.items():
@@ -186,22 +156,24 @@ class CloudCostItem(CostItem):
             self.service = config['General']['DefaultService'].strip()
 
         # Instance
-        for instance_tag_key in config['TagKey']['Instance'].split(","):
-            instance_tag_key = instance_tag_key.strip()
-            if instance_tag_key in self.tags:
-                self.instance = self.tags[instance_tag_key].strip().lower()
-                break
+        if 'Instance' in config['TagKey']:
+            for instance_tag_key in config['TagKey']['Instance'].split(","):
+                instance_tag_key = instance_tag_key.strip()
+                if instance_tag_key in self.tags:
+                    self.instance = self.tags[instance_tag_key].strip().lower()
+                    break
         if not self.instance:  # Default value: same as service
             self.instance = self.service
 
         # Dimensions
-        for dimension in config['General']['Dimensions'].split(","):
-            dimension = dimension.strip()
-            for dimension_tag_key in config['TagKey'][dimension].split(","):
-                dimension_tag_key = dimension_tag_key.strip()
-                if dimension_tag_key in self.tags:
-                    self.dimensions[dimension] = self.tags[dimension_tag_key].strip().lower()
-                    break
+        if 'Dimensions' in config['General']:
+            for dimension in config['General']['Dimensions'].split(","):
+                dimension = dimension.strip()
+                for dimension_tag_key in config['TagKey'][dimension].split(","):
+                    dimension_tag_key = dimension_tag_key.strip()
+                    if dimension_tag_key in self.tags:
+                        self.dimensions[dimension] = self.tags[dimension_tag_key].strip().lower()
+                        break
 
     def visit(self,
               visited_service_instance_list: list['ServiceInstance'],
@@ -305,7 +277,7 @@ class ConsumerCostItem(CostItem):
         return True if self.provider_cost_allocation_type in ("Cost", "CloudTagSelector") else False
 
     def use_key(self) -> bool:
-        return True if self.provider_cost_allocation_type == "Key" else False
+        return True if self.provider_cost_allocation_type in ("Key", "ConsumerTag") else False
 
     def visit(self,
               visited_service_instance_list: list['ServiceInstance'],
@@ -388,48 +360,6 @@ class ConsumerCostItem(CostItem):
         csv_row['ProductMeterValue'] = self.product_meter_value
 
 
-class CloudConsumerCostItem(ConsumerCostItem):
-    """
-    Represents a consumer item that comes from a cloud cost item with a consumer tag
-    """
-
-    __slots__ = (
-        'cloud_cost_item',  # type: CloudCostItem
-    )
-
-    def __init__(self, cloud_cost_item: CloudCostItem, consumer_service: str, consumer_instance: str):
-        ConsumerCostItem.__init__(self)
-        self.cloud_cost_item = cloud_cost_item
-        self.service = consumer_service
-        self.instance = consumer_instance
-        self.dimensions = cloud_cost_item.dimensions
-        self.tags = cloud_cost_item.tags
-        self.provider_service = cloud_cost_item.service
-        self.provider_instance = cloud_cost_item.instance
-        self.provider_cost_allocation_type = "Key"
-
-    def visit(self,
-              visited_service_instance_list: list['ServiceInstance'],
-              ignore_cost_as_key: bool,
-              process_self_consumption: bool,
-              is_amortized_cost: bool,
-              is_for_products: bool) -> None:
-
-        # Use own cost as cost allocation key
-        if is_amortized_cost:
-            self.provider_cost_allocation_key = self.cloud_cost_item.cloud_amortized_cost
-        else:
-            self.provider_cost_allocation_key = self.cloud_cost_item.cloud_on_demand_cost
-
-        # Call mother class method
-        ConsumerCostItem.visit(self,
-                               visited_service_instance_list,
-                               ignore_cost_as_key,
-                               process_self_consumption,
-                               is_amortized_cost,
-                               is_for_products)
-
-
 class CostItemFactory(object):
     """"
     Creates Cost Items
@@ -440,12 +370,6 @@ class CostItemFactory(object):
 
     def create_consumer_cost_item(self) -> ConsumerCostItem:
         return ConsumerCostItem()
-
-    def create_cloud_consumer_cost_item(self,
-                                        cloud_cost_item: CloudCostItem,
-                                        consumer_service: str,
-                                        consumer_instance: str) -> CloudConsumerCostItem:
-        return CloudConsumerCostItem(cloud_cost_item, consumer_service, consumer_instance)
 
 
 class ProviderTagSelectorCostByProductMeter(object):
@@ -768,7 +692,21 @@ class CloudCostAllocator(object):
             for cost_item in service_instance.cost_items:
                 cost_item.set_allocated_cost(is_amortized_cost, is_for_products)
 
-    def allocate(self, cost_items: list[CostItem]) -> bool:
+    def allocate(self, consumer_cost_items: list[ConsumerCostItem], cloud_cost_items: list[CloudCostItem]) -> bool:
+
+        # Create the list of all cost items and process cloud tag selectors
+        cost_items = []
+        cost_items.extend(cloud_cost_items)
+        for consumer_cost_item in consumer_cost_items:
+            if consumer_cost_item.use_cloud_tag_selector():
+                self.process_cloud_tag_selector(cost_items, consumer_cost_item, cloud_cost_items)
+            else:
+                cost_items.append(consumer_cost_item)
+
+        # Create and add cloud consumer cost item from tags
+        new_consumer_cost_items = []
+        self.create_consumer_cost_items_from_tags(new_consumer_cost_items, cost_items)
+        cost_items.extend(new_consumer_cost_items)
 
         # Check all dates are the same
         date_str = ""
@@ -778,9 +716,13 @@ class CloudCostAllocator(object):
         for cost_item in cost_items:
             if date_str != cost_item.date_str:
                 error("Found cost items with different dates: " + date_str + " and " + cost_item.date_str)
+                d = {}
+                cost_item.write_to_csv_row(d)
+                error(str(d))
                 return False
 
-        # Check all currencies are the same and populate missing ones (missing for consumer cost items)
+        # Check all currencies are the same and populate missing ones (currencies are missing for consumer
+        # cost items)
         currency = ""
         for cost_item in cost_items:
             if cost_item.currency:
@@ -812,6 +754,69 @@ class CloudCostAllocator(object):
 
         return True
 
+    def create_consumer_cost_items_from_tags(self,
+                                             new_consumer_cost_items: list[ConsumerCostItem],
+                                             cost_items: list[CostItem]) -> None:
+
+        # Check if consumer tag is used and process cost items
+        if 'ConsumerService' in self.config['TagKey']:
+            for cost_item in cost_items:
+
+                # Check consumer service
+                consumer_service = ""
+                actual_consumer_service_tag_key = ""
+                for consumer_service_tag_key in self.config['TagKey']['ConsumerService'].split(","):
+                    consumer_service_tag_key = consumer_service_tag_key.strip()
+                    if consumer_service_tag_key in cost_item.tags:
+                        actual_consumer_service_tag_key = consumer_service_tag_key
+                        consumer_service = cost_item.tags[consumer_service_tag_key].strip().lower()
+                        break
+                if consumer_service and consumer_service != "-":  # Ignore "-"
+
+                    # Consumer instance
+                    consumer_instance = ""
+                    actual_consumer_instance_tag_key = ""
+                    if 'ConsumerInstance' in self.config['TagKey']:
+                        for consumer_instance_tag_key in self.config['TagKey']['ConsumerInstance'].split(","):
+                            consumer_instance_tag_key = consumer_instance_tag_key.strip()
+                            if consumer_instance_tag_key in cost_item.tags:
+                                actual_consumer_instance_tag_key = consumer_instance_tag_key
+                                consumer_instance = cost_item.tags[consumer_instance_tag_key].strip().lower()
+                                break
+                    if not consumer_instance:  # Use consumer service as default
+                        consumer_instance = consumer_service
+
+                    # Create cloud consumer cost item
+                    new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                    new_consumer_cost_item.service = consumer_service
+                    new_consumer_cost_item.instance = consumer_instance
+                    new_consumer_cost_item.date_str = cost_item.date_str
+                    new_consumer_cost_item.provider_service = cost_item.service
+                    new_consumer_cost_item.provider_instance = cost_item.instance
+                    new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
+                        "'" + actual_consumer_service_tag_key + "' in globals() and " +\
+                        actual_consumer_service_tag_key + "=='" + consumer_service + "'"
+                    if actual_consumer_instance_tag_key:
+                        new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector +=\
+                            " and '" + actual_consumer_instance_tag_key + "' in globals() and " +\
+                            actual_consumer_instance_tag_key + "=='" + consumer_instance + "'"
+                    new_consumer_cost_item.provider_cost_allocation_type = "ConsumerTag"
+                    new_consumer_cost_item.provider_cost_allocation_key = 1.0
+
+                    # Add consumer dimensions
+                    if 'Dimensions' in self.config['General']:
+                        for dimension in self.config['General']['Dimensions'].split(','):
+                            consumer_dimension = 'Consumer' + dimension.strip()
+                            if consumer_dimension in self.config['TagKey']:
+                                for consumer_dimension_tag_key in self.config['TagKey'][consumer_dimension].split(","):
+                                    if consumer_dimension_tag_key in cost_item.tags:
+                                        new_consumer_cost_item.dimensions[dimension] =\
+                                            cost_item.tags[consumer_dimension_tag_key].strip().lower()
+                                        break
+
+                    # Add cloud consumer cost item
+                    new_consumer_cost_items.append(new_consumer_cost_item)
+
     def get_cost_allocation_key_csv_header(self):
         csv_header = [
             'Date',
@@ -842,8 +847,9 @@ class CloudCostAllocator(object):
         ]
 
         # Add dimensions
-        for dimension in self.config['General']['Dimensions'].split(","):
-            csv_header.extend(['Consumer' + dimension.strip()])
+        if 'Dimensions' in self.config['General']:
+            for dimension in self.config['General']['Dimensions'].split(","):
+                csv_header.extend(['Consumer' + dimension.strip()])
 
         return csv_header
 
@@ -886,8 +892,9 @@ class CloudCostAllocator(object):
         ]
 
         # Add dimensions
-        for dimension in self.config['General']['Dimensions'].split(","):
-            csv_header.extend([dimension.strip()])
+        if 'Dimensions' in self.config['General']:
+            for dimension in self.config['General']['Dimensions'].split(","):
+                csv_header.extend([dimension.strip()])
 
         return csv_header
 
@@ -898,49 +905,53 @@ class CloudCostAllocator(object):
             self.service_instances[service_instance_id] = service_instance
         return self.service_instances[service_instance_id]
 
-    def process_cloud_tag_selector(self, consumer_cost_item: ConsumerCostItem, cost_items: list[CostItem]) -> None:
+    def process_cloud_tag_selector(self,
+                                   cost_items: list[CostItem],
+                                   consumer_cost_item: ConsumerCostItem,
+                                   cloud_cost_items: list[CloudCostItem]) -> None:
 
         # Process cost items
-        processed_consumer_service_instances = {}
-        for service_instance_id in self.service_instances.keys():
-            service_instance = self.service_instances[service_instance_id]
-            for cost_item in service_instance.cost_items:
+        processed_consumer_service_instance_ids = {}
+        for cloud_cost_item in cloud_cost_items:
+
+            # Skip if same service: cost allocation to own service is unwanted
+            # Check if matching service instance was already processed
+            consumer_service_instance_id = ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
+            if (cloud_cost_item.service != consumer_cost_item.provider_service and
+                    consumer_service_instance_id not in processed_consumer_service_instance_ids):
 
                 # Check if cloud selector match
-                # Skip if same service: cost allocation to own service is unwanted
-                if cost_item.service != consumer_cost_item.provider_service and\
-                    cost_item.matches_cloud_tag_selector(consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
-                                                         consumer_cost_item.provider_service):
+                if cloud_cost_item.\
+                        matches_cloud_tag_selector(consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
+                                                   consumer_cost_item.provider_service):
 
-                    # Check if matching service instance was already processed
-                    consumer_service_instance = self.get_service_instance(cost_item.service, cost_item.instance)
-                    if consumer_service_instance.get_self_id() not in processed_consumer_service_instances:
-                        processed_consumer_service_instances[consumer_service_instance.get_self_id()] =\
-                            consumer_service_instance
+                    # Add to process service instances
+                    processed_consumer_service_instance_ids[consumer_service_instance_id] = consumer_service_instance_id
 
-                        # Create new consumer cost item for this instance
-                        new_consumer_cost_item = self.cost_item_factory.CreateConsumerCostItem()
-                        new_consumer_cost_item.service = consumer_cost_item.service
-                        new_consumer_cost_item.instance = consumer_cost_item.instance
-                        new_consumer_cost_item.tags = new_consumer_cost_item.tags.copy()
-                        new_consumer_cost_item.provider_service = consumer_cost_item.provider_service
-                        new_consumer_cost_item.provider_instance = consumer_cost_item.provider_instance
-                        new_consumer_cost_item.provider_meter_name = consumer_cost_item.provider_meter_name.copy()
-                        new_consumer_cost_item.provider_meter_unit = consumer_cost_item.provider_meter_unit.copy()
-                        new_consumer_cost_item.provider_meter_value = consumer_cost_item.provider_meter_value.copy()
-                        new_consumer_cost_item.provider_cost_allocation_type =\
-                            consumer_cost_item.provider_cost_allocation_type
-                        new_consumer_cost_item.provider_tag_selector = consumer_cost_item.provider_tag_selector
-                        new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
-                            consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+                    # Create new consumer cost item for this instance
+                    new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                    new_consumer_cost_item.date_str = cloud_cost_item.date_str
+                    new_consumer_cost_item.service = cloud_cost_item.service
+                    new_consumer_cost_item.instance = cloud_cost_item.instance
+                    new_consumer_cost_item.tags = new_consumer_cost_item.tags.copy()
+                    new_consumer_cost_item.provider_service = consumer_cost_item.provider_service
+                    new_consumer_cost_item.provider_instance = consumer_cost_item.provider_instance
+                    new_consumer_cost_item.provider_meter_name = consumer_cost_item.provider_meter_name.copy()
+                    new_consumer_cost_item.provider_meter_unit = consumer_cost_item.provider_meter_unit.copy()
+                    new_consumer_cost_item.provider_meter_value = consumer_cost_item.provider_meter_value.copy()
+                    new_consumer_cost_item.provider_cost_allocation_type =\
+                        consumer_cost_item.provider_cost_allocation_type
+                    new_consumer_cost_item.provider_tag_selector = consumer_cost_item.provider_tag_selector
+                    new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
+                        consumer_cost_item.provider_cost_allocation_cloud_tag_selector
 
-                        # TODO: split and dispatch the provider meters
+                    # TODO: split and dispatch the provider meters
 
-                        # Add new consumer cost item
-                        cost_items.append(new_consumer_cost_item)
+                    # Add new consumer cost item
+                    cost_items.append(new_consumer_cost_item)
 
     def read_cost_allocation_key(self,
-                                 cost_items: list[CostItem],
+                                 cost_items: list[ConsumerCostItem],
                                  cost_allocation_key_stream: TextIO) -> None:
 
         # Read lines
@@ -983,10 +994,11 @@ class CloudCostAllocator(object):
                     consumer_cost_item.instance = consumer_cost_item.service
             elif not consumer_cost_item.instance:  # Same as service by default
                 consumer_cost_item.instance = consumer_cost_item.service
-            for dimension in self.config['General']['Dimensions'].split(','):
-                consumer_dimension = 'Consumer' + dimension.strip()
-                if consumer_dimension in line:
-                    consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
+            if 'Dimensions' in self.config['General']:
+                for dimension in self.config['General']['Dimensions'].split(','):
+                    consumer_dimension = 'Consumer' + dimension.strip()
+                    if consumer_dimension in line:
+                        consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
             if 'ConsumerTags' in line:
                 consumer_tags = line["ConsumerTags"]
                 if consumer_tags:
@@ -1030,10 +1042,8 @@ class CloudCostAllocator(object):
             if "ProviderTagSelector" in line:
                 consumer_cost_item.provider_tag_selector = line["ProviderTagSelector"].lower()
 
-            # Process cloud provider tag selector
-            if not (consumer_cost_item.use_cloud_tag_selector() and
-                    self.process_cloud_tag_selector(consumer_cost_item, cost_items)):
-                cost_items.append(consumer_cost_item)
+            # Add item
+            cost_items.append(consumer_cost_item)
 
     def visit_service_instances(self, use_cost_as_key: bool, is_amortized_cost: bool, is_for_products: bool) -> None:
         for service_instance in self.service_instances.values():
@@ -1045,7 +1055,10 @@ class CloudCostAllocator(object):
     def write_allocated_cost(self, allocated_cost_stream: TextIO) -> None:
 
         # Open CSV file and write header
-        writer = DictWriter(allocated_cost_stream, fieldnames=self.get_cost_item_csv_header(), restval='', extrasaction='ignore')
+        writer = DictWriter(allocated_cost_stream,
+                            fieldnames=self.get_cost_item_csv_header(),
+                            restval='',
+                            extrasaction='ignore')
         writer.writeheader()
 
         # Process cost items

@@ -40,7 +40,7 @@ def main():
     cost_item_factory = cloud_cost_allocation.cloud_cost_allocator.CostItemFactory()
 
     # Read costs
-    cost_items = []
+    cloud_cost_items = []
     for cost in options.cost:
         cost_list = cost.split(':')
         cost_type = cost_list[0]
@@ -48,21 +48,22 @@ def main():
         if cost_type == 'AzEaAmo':
             cloud_cost_reader = cloud_cost_allocation.azure_ea_amortized_cost_reader.AzureEaAmortizedCostReader\
                 (cost_item_factory, config)
-            cloud_cost_reader.read(cost_items, cost_text_io)
+            cloud_cost_reader.read(cloud_cost_items, cost_text_io)
         else:
             logging.error("Unknown cost type: " + cost_type)
             sys.exit(1)
         cost_text_io.close()
 
     # Read keys
+    consumer_cost_items = []
     cloud_cost_allocator = cloud_cost_allocation.cloud_cost_allocator.CloudCostAllocator(cost_item_factory, config)
     for key in options.keys:
         cost_allocation_key_text_io = open(key, 'r')
-        cloud_cost_allocator.read_cost_allocation_key(cost_items, cost_allocation_key_text_io)
+        cloud_cost_allocator.read_cost_allocation_key(consumer_cost_items, cost_allocation_key_text_io)
         cost_allocation_key_text_io.close()
 
     # Allocate costs
-    if not cloud_cost_allocator.allocate(cost_items):
+    if not cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items):
         logging.error("Cost allocation failed")
         exit(1)
 

@@ -23,7 +23,7 @@ class AzureEaAmortizedCostReader(object):
         self.config = config
         self.cost_item_factory = cost_item_factory
 
-    def read(self, cost_items: list[cloud_cost_allocator.CostItem], cloud_cost_text_io: TextIO) -> None:
+    def read(self, cost_items: list[cloud_cost_allocator.CloudCostItem], cloud_cost_text_io: TextIO) -> None:
 
         # Read cost lines
         reader = DictReader(cloud_cost_text_io)
@@ -73,8 +73,16 @@ class AzureEaAmortizedCostReader(object):
             # Process unused reservation
             if line['ChargeType'] == 'UnusedReservation':
                 cloud_cost_item.service = self.config['AzureEaAmortizedCost']['UnusedReservationService']
-                cloud_cost_item.instance = self.config['AzureEaAmortizedCost']['UnusedReservationInstance']
-                cloud_cost_item.component = self.config['AzureEaAmortizedCost']['UnusedReservationComponent']
+                if 'UnusedReservationInstance' in self.config['AzureEaAmortizedCost']:
+                    cloud_cost_item.instance = self.config['AzureEaAmortizedCost']['UnusedReservationInstance']
+                else:
+                    cloud_cost_item.instance = cloud_cost_item.service
+                if 'Dimensions' in self.config['General']:
+                    for dimension in self.config['General']['Dimensions'].split(','):
+                        unused_reservation_dimension = 'UnusedReservation' + dimension.strip()
+                        if unused_reservation_dimension in self.config['AzureEaAmortizedCost']:
+                            cloud_cost_item.dimensions[dimension] =\
+                                self.config['AzureEaAmortizedCost'][unused_reservation_dimension]
 
             else:
                 # Fill cost item from tags
@@ -83,7 +91,3 @@ class AzureEaAmortizedCostReader(object):
             # Add cloud cost item
             cost_items.append(cloud_cost_item)
 
-            # Create and add cloud consumer cost item from tags
-            cloud_cost_item.create_and_add_cloud_consumer_cost_item_from_tags(cost_items,
-                                                                              self.cost_item_factory,
-                                                                              self.config)

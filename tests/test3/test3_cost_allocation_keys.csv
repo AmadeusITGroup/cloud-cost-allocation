@@ -1,0 +1,6 @@
+Date,ProviderService,ProviderInstance,ProviderCostAllocationType,ProviderCostAllocationCloudTagSelector,ProviderCostAllocationKey,ConsumerService,ConsumerInstance,ConsumerTags
+2022-03-11,finops,reservation,CloudTagSelector,True,,,,
+2022-03-11,shared1,,Cost,,,shared2,,
+2022-03-11,shared1,,Cost,,,application1,instance1,"consumer_service:application2,consumer_instance:instance1"
+2022-03-11,shared1,,Cost,,,application1,instance2,"consumer_service:application2,consumer_instance:instance2"
+2022-03-11,shared1,,Cost,,,,,
