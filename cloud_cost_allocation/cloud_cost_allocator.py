@@ -204,9 +204,9 @@ class ConsumerCostItem(CostItem):
         'provider_cost_allocation_type',                # type: str
         'provider_cost_allocation_key',                 # type: float
         'provider_cost_allocation_cloud_tag_selector',  # type: str
-        'provider_meter_name',                          # type: list
-        'provider_meter_unit',                          # type: list
-        'provider_meter_value',                         # type: list
+        'provider_meter_names',                         # type: list[str]
+        'provider_meter_units',                         # type: list[str]
+        'provider_meter_values',                        # type: list[str]
         'product',                                      # type: str
         'product_cost',                                 # type: float
         'product_amortized_cost',                       # type: float
@@ -227,9 +227,9 @@ class ConsumerCostItem(CostItem):
         self.provider_cost_allocation_type = ""
         self.provider_cost_allocation_key = 0.0
         self.provider_cost_allocation_cloud_tag_selector = ""
-        self.provider_meter_name = [""] * 5
-        self.provider_meter_unit = [""] * 5
-        self.provider_meter_value = [""] * 5
+        self.provider_meter_names = []
+        self.provider_meter_units = []
+        self.provider_meter_values = []
         self.product = ""
         self.product_cost = 0.0
         self.product_amortized_cost = 0.0
@@ -338,10 +338,18 @@ class ConsumerCostItem(CostItem):
         csv_row['ProviderCostAllocationType'] = self.provider_cost_allocation_type
         csv_row['ProviderCostAllocationKey'] = str(self.provider_cost_allocation_key)
         csv_row['ProviderCostAllocationCloudTagSelector'] = self.provider_cost_allocation_cloud_tag_selector
-        for i in range(5):
-            csv_row['ProviderMeterName%s' % (i+1)] = self.provider_meter_name[i]
-            csv_row['ProviderMeterUnit%s' % (i+1)] = self.provider_meter_unit[i]
-            csv_row['ProviderMeterValue%s' % (i+1)] = self.provider_meter_value[i]
+        index = 0
+        for provider_meter_name in self.provider_meter_names:
+            csv_row['ProviderMeterName%s' % (index+1)] = provider_meter_name
+            index += 1
+        index = 0
+        for provider_meter_unit in self.provider_meter_units:
+            csv_row['ProviderMeterUnit%s' % (index + 1)] = provider_meter_unit
+            index += 1
+        index = 0
+        for provider_meter_value in self.provider_meter_values:
+            csv_row['ProviderMeterValue%s' % (index + 1)] = provider_meter_value
+            index += 1
         csv_row['Product'] = self.product
         if self.product:
             csv_row['ProductAmortizedCost'] = self.product_amortized_cost
@@ -845,21 +853,6 @@ class CloudCostAllocator(object):
             'ProviderService',
             'ProviderInstance',
             'ProviderTagSelector',
-            'ProviderMeterName1',
-            'ProviderMeterUnit1',
-            'ProviderMeterValue1',
-            'ProviderMeterName2',
-            'ProviderMeterUnit2',
-            'ProviderMeterValue2',
-            'ProviderMeterName3',
-            'ProviderMeterUnit3',
-            'ProviderMeterValue3',
-            'ProviderMeterName4',
-            'ProviderMeterUnit4',
-            'ProviderMeterValue4',
-            'ProviderMeterName5',
-            'ProviderMeterUnit5',
-            'ProviderMeterValue5',
             'ProviderCostAllocationType',
             'ProviderCostAllocationKey',
             'ProviderCostAllocationCloudTagSelector',
@@ -875,6 +868,13 @@ class CloudCostAllocator(object):
         if 'Dimensions' in self.config['General']:
             for dimension in self.config['General']['Dimensions'].split(","):
                 csv_header.extend([dimension.strip()])
+
+        # Add provider meters
+        if 'NumberOfProviderMeters' in self.config['General']:
+            for index in range(int(self.config['General']['NumberOfProviderMeters'])):
+                csv_header.extend(['ProviderMeterName%s' % (index + 1)])
+                csv_header.extend(['ProviderMeterUnit%s' % (index + 1)])
+                csv_header.extend(['ProviderMeterValue%s' % (index + 1)])
 
         return csv_header
 
@@ -917,10 +917,10 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.tags = new_consumer_cost_item.tags.copy()
                     new_consumer_cost_item.provider_service = consumer_cost_item.provider_service
                     new_consumer_cost_item.provider_instance = consumer_cost_item.provider_instance
-                    new_consumer_cost_item.provider_meter_name = consumer_cost_item.provider_meter_name.copy()
+                    new_consumer_cost_item.provider_meter_names = consumer_cost_item.provider_meter_names.copy()
                     # TODO: split and dispatch the provider meter values based on amortized costs
-                    new_consumer_cost_item.provider_meter_value = consumer_cost_item.provider_meter_value.copy()
-                    new_consumer_cost_item.provider_meter_unit = consumer_cost_item.provider_meter_unit.copy()
+                    new_consumer_cost_item.provider_meter_values = consumer_cost_item.provider_meter_values.copy()
+                    new_consumer_cost_item.provider_meter_units = consumer_cost_item.provider_meter_units.copy()
                     new_consumer_cost_item.provider_cost_allocation_type =\
                         consumer_cost_item.provider_cost_allocation_type
                     new_consumer_cost_item.provider_tag_selector = consumer_cost_item.provider_tag_selector
@@ -994,19 +994,31 @@ class CloudCostAllocator(object):
                                 consumer_cost_item.tags[key] = value
                             else:
                                 error("Unexpected consumer tag format: '" + tag + "'")
-            for i in range(5):
-                if 'ProviderMeterName%d' % (i + 1) in line:
-                    consumer_cost_item.provider_meter_name[i] = line['ProviderMeterName%d' % (i + 1)]
-                if 'ProviderMeterUnit%d' % (i + 1) in line:
-                    consumer_cost_item.provider_meter_unit[i] = line['ProviderMeterUnit%d' % (i + 1)]
-                if 'ProviderMeterValue%d' % (i + 1) in line:
-                    consumer_cost_item.provider_meter_value[i] = line['ProviderMeterValue%d' % (i + 1)]
+            if 'NumberOfProviderMeters' in self.config['General']:
+                nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
+                for i in range(nb_provider_meters):
+                    if 'ProviderMeterName%d' % (i + 1) in line:
+                        consumer_cost_item.provider_meter_names.append(line['ProviderMeterName%d' % (i + 1)])
+                    if 'ProviderMeterUnit%d' % (i + 1) in line:
+                        consumer_cost_item.provider_meter_units.append(line['ProviderMeterUnit%d' % (i + 1)])
+                    if 'ProviderMeterValue%d' % (i + 1) in line:
+                        provider_meter_value_column = 'ProviderMeterValue%d' % (i + 1)
+                        provider_meter_value = line[provider_meter_value_column]
+                        consumer_cost_item.provider_meter_values.append(provider_meter_value)
+                        if provider_meter_value:
+                            try:
+                                float(provider_meter_value)
+                            except ValueError:
+                                error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
+                                      "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
+                                      "is not a float")
+
             consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
             if 'ProviderCostAllocationType' in line:
                 consumer_cost_item.provider_cost_allocation_type = line['ProviderCostAllocationType']
                 if consumer_cost_item.provider_cost_allocation_type not in ("Key", "Cost", "CloudTagSelector"):
                     error("Unknown ProviderCostAllocationType '" + consumer_cost_item.provider_cost_allocation_type +
-                          "' for provider service '" + consumer_cost_item.provider_service + "'")
+                          "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             if consumer_cost_item.provider_cost_allocation_type == 'Key':
                 if 'ProviderCostAllocationKey' in line:
@@ -1015,7 +1027,9 @@ class CloudCostAllocator(object):
                     except ValueError:
                         pass
                 if consumer_cost_item.provider_cost_allocation_key == 0.0:
-                    error("Skipping cost allocation key line with null, missing, or invalid ProviderCostAllocationKey")
+                    error("Skipping cost allocation key line with non-float " +
+                          " ProviderCostAllocationKey: '" + line['ProviderCostAllocationKey'] + "'" +
+                          " for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 if 'ProviderCostAllocationCloudTagSelector' in line:
