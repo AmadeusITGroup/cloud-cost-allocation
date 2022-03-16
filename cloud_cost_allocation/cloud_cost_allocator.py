@@ -261,7 +261,7 @@ class ConsumerCostItem(CostItem):
             CostItem.set_allocated_cost(self, is_amortized_cost, is_for_products)
 
     def set_cost_as_key(self, cost: float) -> None:
-        if self.use_cost_as_key():
+        if self.provider_cost_allocation_type == "Cost":
             self.provider_cost_allocation_key = cost
 
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
@@ -269,15 +269,6 @@ class ConsumerCostItem(CostItem):
         self.provider_service_instance = cloud_cost_allocator.get_service_instance(self.provider_service,
                                                                                    self.provider_instance)
         self.provider_service_instance.consumer_cost_items.append(self)
-
-    def use_cloud_tag_selector(self) -> bool:
-        return True if self.provider_cost_allocation_type == "CloudTagSelector" else False
-
-    def use_cost_as_key(self) -> bool:
-        return True if self.provider_cost_allocation_type in ("Cost", "CloudTagSelector") else False
-
-    def use_key(self) -> bool:
-        return True if self.provider_cost_allocation_type in ("Key", "ConsumerTag") else False
 
     def visit(self,
               visited_service_instance_list: list['ServiceInstance'],
@@ -297,7 +288,7 @@ class ConsumerCostItem(CostItem):
                                                      is_for_products)
 
             # Ignore cost as keys
-            if not (ignore_cost_as_key and self.use_cost_as_key()):
+            if not (ignore_cost_as_key and self.provider_cost_allocation_type == "Cost"):
 
                 # Compute item cost based on its provider tag selector cost
                 provider_tag_selector =\
@@ -642,7 +633,7 @@ class ServiceInstance(object):
         self.is_being_visited = True
         visited_service_instance_list.append(self)
 
-        # Visit items, except self-consumption, and update cost
+        # visit items, except self-consumption, and update cost
         for item in self.cost_items:
             item.visit(visited_service_instance_list, ignore_cost_as_key, False, is_amortized_cost, is_for_products)
             self.cost += item.cost
@@ -650,7 +641,7 @@ class ServiceInstance(object):
         # Compute provider tag selector costs
         self.compute_provider_tag_selector_costs()
 
-        # Visit self-consumption
+        # visit self-consumption
         for item in self.cost_items:
             item.visit(visited_service_instance_list, ignore_cost_as_key, True, is_amortized_cost, is_for_products)
 
@@ -674,31 +665,13 @@ class CloudCostAllocator(object):
         self.cost_item_factory = cost_item_factory
         self.service_instances = {}
 
-    def allocate_aux(self, is_amortized_cost: bool, is_for_products: bool) -> None:
-
-        # Visit, ignoring keys using cost
-        self.visit_service_instances(True, is_amortized_cost, is_for_products)
-
-        # Set costs as keys
-        for service_instance in self.service_instances.values():
-            for cost_item in service_instance.cost_items:
-                cost_item.set_cost_as_key(service_instance.cost)
-
-        # Visit, using cost as key
-        self.visit_service_instances(False, is_amortized_cost, is_for_products)
-
-        # Save allocated costs
-        for service_instance in self.service_instances.values():
-            for cost_item in service_instance.cost_items:
-                cost_item.set_allocated_cost(is_amortized_cost, is_for_products)
-
     def allocate(self, consumer_cost_items: list[ConsumerCostItem], cloud_cost_items: list[CloudCostItem]) -> bool:
 
         # Create the list of all cost items and process cloud tag selectors
         cost_items = []
         cost_items.extend(cloud_cost_items)
         for consumer_cost_item in consumer_cost_items:
-            if consumer_cost_item.use_cloud_tag_selector():
+            if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 self.process_cloud_tag_selector(cost_items, consumer_cost_item, cloud_cost_items)
             else:
                 cost_items.append(consumer_cost_item)
@@ -740,17 +713,24 @@ class CloudCostAllocator(object):
         for cost_item in cost_items:
             cost_item.set_instance_links(self)
 
-        # Allocate amortized costs
-        self.allocate_aux(True, False)
+        # Compute service amortized cost, ignoring the keys that are using cost, and then
+        # set these keys from the computed cost
+        self.visit(True, True, False)
+        for service_instance in self.service_instances.values():
+            for cost_item in service_instance.cost_items:
+                cost_item.set_cost_as_key(service_instance.cost)
 
-        # Allocate on-demand costs
-        self.allocate_aux(False, False)
+        # Allocate amortized costs for services
+        self.visit_and_set_allocated_cost(True, False)
+
+        # Allocate on-demand costs for services
+        self.visit_and_set_allocated_cost(False, False)
 
         # Allocate amortized costs for products
-        self.allocate_aux(True, True)
+        self.visit_and_set_allocated_cost(True, True)
 
         # Allocate on-demand costs for products
-        self.allocate_aux(False, True)
+        self.visit_and_set_allocated_cost(False, True)
 
         return True
 
@@ -793,11 +773,11 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.date_str = cost_item.date_str
                     new_consumer_cost_item.provider_service = cost_item.service
                     new_consumer_cost_item.provider_instance = cost_item.instance
-                    new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
+                    new_consumer_cost_item.provider_tag_selector =\
                         "'" + actual_consumer_service_tag_key + "' in globals() and " +\
                         actual_consumer_service_tag_key + "=='" + consumer_service + "'"
                     if actual_consumer_instance_tag_key:
-                        new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector +=\
+                        new_consumer_cost_item.provider_tag_selector +=\
                             " and '" + actual_consumer_instance_tag_key + "' in globals() and " +\
                             actual_consumer_instance_tag_key + "=='" + consumer_instance + "'"
                     new_consumer_cost_item.provider_cost_allocation_type = "ConsumerTag"
@@ -911,23 +891,24 @@ class CloudCostAllocator(object):
                                    cloud_cost_items: list[CloudCostItem]) -> None:
 
         # Process cost items
-        processed_consumer_service_instance_ids = {}
+        new_consumer_cost_items = {}  # Key is consumer service instance id
         for cloud_cost_item in cloud_cost_items:
 
             # Skip if same service: cost allocation to own service is unwanted
-            # Check if matching service instance was already processed
+            # Check if cloud selector match
             consumer_service_instance_id = ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
-            if (cloud_cost_item.service != consumer_cost_item.provider_service and
-                    consumer_service_instance_id not in processed_consumer_service_instance_ids):
+            cloud_tag_selector = consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+            if cloud_cost_item.service != consumer_cost_item.provider_service and\
+                    cloud_cost_item.matches_cloud_tag_selector(cloud_tag_selector, consumer_cost_item.provider_service):
 
-                # Check if cloud selector match
-                if cloud_cost_item.\
-                        matches_cloud_tag_selector(consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
-                                                   consumer_cost_item.provider_service):
+                # Check if matching service instance was already processed
+                if consumer_service_instance_id in new_consumer_cost_items:
 
-                    # Add to process service instances
-                    processed_consumer_service_instance_ids[consumer_service_instance_id] = consumer_service_instance_id
+                    # Increase existing cost allocation key with the amortized cost of this cloud cost item
+                    new_consumer_cost_item = new_consumer_cost_items[consumer_service_instance_id]
+                    new_consumer_cost_item.provider_cost_allocation_key += cloud_cost_item.cloud_amortized_cost
 
+                else:
                     # Create new consumer cost item for this instance
                     new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
                     new_consumer_cost_item.date_str = cloud_cost_item.date_str
@@ -937,17 +918,18 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.provider_service = consumer_cost_item.provider_service
                     new_consumer_cost_item.provider_instance = consumer_cost_item.provider_instance
                     new_consumer_cost_item.provider_meter_name = consumer_cost_item.provider_meter_name.copy()
-                    new_consumer_cost_item.provider_meter_unit = consumer_cost_item.provider_meter_unit.copy()
+                    # TODO: split and dispatch the provider meter values based on amortized costs
                     new_consumer_cost_item.provider_meter_value = consumer_cost_item.provider_meter_value.copy()
+                    new_consumer_cost_item.provider_meter_unit = consumer_cost_item.provider_meter_unit.copy()
                     new_consumer_cost_item.provider_cost_allocation_type =\
                         consumer_cost_item.provider_cost_allocation_type
                     new_consumer_cost_item.provider_tag_selector = consumer_cost_item.provider_tag_selector
+                    new_consumer_cost_item.provider_cost_allocation_key = cloud_cost_item.cloud_amortized_cost
                     new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
                         consumer_cost_item.provider_cost_allocation_cloud_tag_selector
 
-                    # TODO: split and dispatch the provider meters
-
                     # Add new consumer cost item
+                    new_consumer_cost_items[consumer_service_instance_id] = new_consumer_cost_item
                     cost_items.append(new_consumer_cost_item)
 
     def read_cost_allocation_key(self,
@@ -1026,7 +1008,7 @@ class CloudCostAllocator(object):
                     error("Unknown ProviderCostAllocationType '" + consumer_cost_item.provider_cost_allocation_type +
                           "' for provider service '" + consumer_cost_item.provider_service + "'")
                     continue
-            if consumer_cost_item.use_key():
+            if consumer_cost_item.provider_cost_allocation_type == 'Key':
                 if 'ProviderCostAllocationKey' in line:
                     try:
                         consumer_cost_item.provider_cost_allocation_key = float(line['ProviderCostAllocationKey'])
@@ -1035,7 +1017,7 @@ class CloudCostAllocator(object):
                 if consumer_cost_item.provider_cost_allocation_key == 0.0:
                     error("Skipping cost allocation key line with null, missing, or invalid ProviderCostAllocationKey")
                     continue
-            elif consumer_cost_item.use_cloud_tag_selector():
+            elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 if 'ProviderCostAllocationCloudTagSelector' in line:
                     consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
                         line['ProviderCostAllocationCloudTagSelector']
@@ -1044,13 +1026,23 @@ class CloudCostAllocator(object):
 
             # Add item
             cost_items.append(consumer_cost_item)
+    
+    def visit_and_set_allocated_cost(self, is_amortized_cost: bool, is_for_products: bool) -> None:
 
-    def visit_service_instances(self, use_cost_as_key: bool, is_amortized_cost: bool, is_for_products: bool) -> None:
+        # Visit, using cost keys, which have been previously computed
+        self.visit(False, is_amortized_cost, is_for_products)
+
+        # Set allocated costs
+        for service_instance in self.service_instances.values():
+            for cost_item in service_instance.cost_items:
+                cost_item.set_allocated_cost(is_amortized_cost, is_for_products)
+
+    def visit(self, ignore_cost_as_key: bool, is_amortized_cost: bool, is_for_products: bool) -> None:
         for service_instance in self.service_instances.values():
             service_instance.reset_visit(is_for_products)
         for service_instance in self.service_instances.values():
             visited_service_instance_list = []
-            service_instance.visit(visited_service_instance_list, use_cost_as_key, is_amortized_cost, is_for_products)
+            service_instance.visit(visited_service_instance_list, ignore_cost_as_key, is_amortized_cost, is_for_products)
 
     def write_allocated_cost(self, allocated_cost_stream: TextIO) -> None:
 

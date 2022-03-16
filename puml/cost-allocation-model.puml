@@ -22,8 +22,8 @@ package "Service Cost Allocation Data" as CostAllocationCSV {
 
 class CostAllocationItem {
 ProviderMeter[Name/Unit/Value][1/2/3/4/5]
-ProviderTagSelector: Key/Cost/CloudTagSelector
-ProviderCostAllocationType
+ProviderTagSelector
+ProviderCostAllocationType: Key/CloudTagSelector/Cost
 ProviderCostAllocationKey
 ProviderCostAllocationCloudTagSelector
 }

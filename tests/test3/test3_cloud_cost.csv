@@ -1,6 +1,6 @@
 Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,ReservationId,Quantity,UnitPrice
-03/11/2022,,40,EUR,UnusedReservation,,ReservationId1,,3
+03/11/2022,,30,EUR,UnusedReservation,,ReservationId1,,
 03/11/2022,,100,EUR,Usage,ResourceId0,ReservationId0,2,75
-03/11/2022,"""service"": ""shared1""",100,EUR,Usage,ResourceId1,ReservationId1,4,30
-03/11/2022,"""service"": ""shared2"""",""""consumer_service"": ""application1"""",""""consumer_instance"": ""instance1""",100,EUR,Usage,ResourceId3,ReservationId3,2,75
-03/11/2022,"""service"": ""shared2"""",""""consumer_service"": ""application1"""",""""consumer_instance"": ""instance2"""",""""consumer_component"": ""component1""",100,EUR,Usage,ResourceId3,ReservationId3,2,75
+03/11/2022,"""service"": ""shared1""",100,EUR,Usage,ResourceId1,ReservationId1,5,30
+03/11/2022,"""service"": ""shared2"""",""""instance"": ""instance1""",20,EUR,Usage,ResourceId2,ReservationId2,3,10
+03/11/2022,"""service"": ""shared2"""",""""instance"": ""instance2""",80,EUR,Usage,ResourceId3,ReservationId3,3,40
