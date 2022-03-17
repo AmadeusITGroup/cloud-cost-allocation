@@ -759,19 +759,42 @@ class CloudCostAllocator(object):
                         actual_consumer_service_tag_key = consumer_service_tag_key
                         consumer_service = cost_item.tags[consumer_service_tag_key].strip().lower()
                         break
-                if consumer_service and consumer_service != "-":  # Ignore "-"
+                if consumer_service == "-": # Ignore consumer service named "-"
+                    consumer_service = ""
 
-                    # Consumer instance
-                    consumer_instance = ""
-                    actual_consumer_instance_tag_key = ""
-                    if 'ConsumerInstance' in self.config['TagKey']:
-                        for consumer_instance_tag_key in self.config['TagKey']['ConsumerInstance'].split(","):
-                            consumer_instance_tag_key = consumer_instance_tag_key.strip()
-                            if consumer_instance_tag_key in cost_item.tags:
-                                actual_consumer_instance_tag_key = consumer_instance_tag_key
-                                consumer_instance = cost_item.tags[consumer_instance_tag_key].strip().lower()
-                                break
-                    if not consumer_instance:  # Use consumer service as default
+                # Check consumer instance
+                consumer_instance = ""
+                actual_consumer_instance_tag_key = ""
+                if 'ConsumerInstance' in self.config['TagKey']:
+                    for consumer_instance_tag_key in self.config['TagKey']['ConsumerInstance'].split(","):
+                        consumer_instance_tag_key = consumer_instance_tag_key.strip()
+                        if consumer_instance_tag_key in cost_item.tags:
+                            actual_consumer_instance_tag_key = consumer_instance_tag_key
+                            consumer_instance = cost_item.tags[consumer_instance_tag_key].strip().lower()
+                            break
+
+                # Check product
+                product = ""
+                actual_product_tag_key = ""
+                if 'Product' in self.config['TagKey']:
+                    for product_tag_key in self.config['TagKey']['Product'].split(","):
+                        product_tag_key = product_tag_key.strip()
+                        if product_tag_key in cost_item.tags:
+                            actual_product_tag_key = product_tag_key
+                            product = cost_item.tags[product_tag_key].strip().lower()
+                            break
+
+                # Create consumer cost item if there is a consumer service or product
+                if consumer_service or product:
+
+                    # Set consumer service
+                    if not consumer_service:
+                        # Product tag exists: set self-consumption, to materialize final consumption
+                        consumer_service = cost_item.service
+
+                    # Set consumer instance
+                    if not consumer_instance:
+                        # Same as service by default
                         consumer_instance = consumer_service
 
                     # Create cloud consumer cost item
@@ -781,15 +804,24 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.date_str = cost_item.date_str
                     new_consumer_cost_item.provider_service = cost_item.service
                     new_consumer_cost_item.provider_instance = cost_item.instance
-                    new_consumer_cost_item.provider_tag_selector =\
-                        "'" + actual_consumer_service_tag_key + "' in globals() and " +\
-                        actual_consumer_service_tag_key + "=='" + consumer_service + "'"
-                    if actual_consumer_instance_tag_key:
+                    new_consumer_cost_item.provider_tag_selector = ""
+                    if actual_consumer_service_tag_key:
+                        new_consumer_cost_item.provider_tag_selector =\
+                            "'" + actual_consumer_service_tag_key + "' in globals() and " +\
+                            actual_consumer_service_tag_key + "=='" + consumer_service + "'"
+                        if actual_consumer_instance_tag_key:
+                            new_consumer_cost_item.provider_tag_selector +=\
+                                " and '" + actual_consumer_instance_tag_key + "' in globals() and " +\
+                                actual_consumer_instance_tag_key + "=='" + consumer_instance + "'"
+                    if actual_product_tag_key:
+                        if new_consumer_cost_item.provider_tag_selector:
+                            new_consumer_cost_item.provider_tag_selector += " and "
                         new_consumer_cost_item.provider_tag_selector +=\
-                            " and '" + actual_consumer_instance_tag_key + "' in globals() and " +\
-                            actual_consumer_instance_tag_key + "=='" + consumer_instance + "'"
+                            "'" + actual_product_tag_key + "' in globals() and " +\
+                            actual_product_tag_key + "=='" + product + "'"
                     new_consumer_cost_item.provider_cost_allocation_type = "ConsumerTag"
                     new_consumer_cost_item.provider_cost_allocation_key = 1.0
+                    new_consumer_cost_item.product = product
 
                     # Add consumer dimensions
                     if 'Dimensions' in self.config['General']:

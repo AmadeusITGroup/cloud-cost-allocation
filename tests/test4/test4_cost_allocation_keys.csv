@@ -1,0 +1,7 @@
+Date,ProviderService,ProviderTagSelector,ProviderCostAllocationKey,ConsumerService,ConsumerTags
+2022-03-17,shared1,'t' in globals() and k == 'x',2,application1,"product:product1"
+2022-03-17,shared1,'t' in globals() and k == 'x',8,application2,"product:product1"
+2022-03-17,shared1,'t' in globals() and (k == 'x' or k == 'y'),1,application3,"product:product1"
+2022-03-17,shared2,'t' in globals() and k == 't',2,application4,"consumer_service:application7,product:product2"
+2022-03-17,shared2,'t' in globals() and k == 't',8,application5,"consumer_service:application8,product:product2"
+2022-03-17,shared2,'t' in globals() and (k == 't' or k == 'u'),1,application6,"consumer_service:application9,product:product2"

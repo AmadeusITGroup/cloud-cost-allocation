@@ -88,6 +88,9 @@ class Test(unittest.TestCase):
     def test_test3(self):
         self.run_test('test3')
 
+    def test_test4(self):
+        self.run_test('test4')
+
     # Auxiliary method
     def run_test(self, test):
 
