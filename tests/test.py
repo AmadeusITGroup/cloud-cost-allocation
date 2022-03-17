@@ -1,13 +1,17 @@
 # coding: utf-8
 
+# Standard imports
 from configparser import ConfigParser
 from csv import DictWriter
 from filecmp import cmp
 import logging
 import os
+import sys
 import unittest
 from typing import TextIO
 
+# Cloud cost allocation import
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import cloud_cost_allocation.cloud_cost_allocator
 import cloud_cost_allocation.azure_ea_amortized_cost_reader
 
@@ -143,3 +147,7 @@ class Test(unittest.TestCase):
         reference_filename = directory + "/" + test + "/" + test + "_allocated_cost.csv"
         assert_message = test + ": reference cmp failed"
         self.assertTrue(cmp(allocated_costs_filename, reference_filename, shallow=False), assert_message)
+
+
+if __name__ == '__main__':
+    unittest.main()
