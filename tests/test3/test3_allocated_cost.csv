@@ -1,15 +1,18 @@
 Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductMeterName,ProductMeterUnit,ProductMeterValue,Component,Cloud,IsFinalConsumption
 2022-03-11,application1,instance1,,33.0,45.0,EUR,shared2,instance1,'consumer_service' in globals() and consumer_service=='application1' and 'consumer_instance' in globals() and consumer_instance=='instance1',ConsumerTag,1.0,,,,,,,,component1,,Y
 2022-03-11,application2,instance2,,132.0,180.0,EUR,shared2,instance2,'consumer_service' in globals() and consumer_service=='application2' and 'consumer_instance' in globals() and consumer_instance=='instance2',ConsumerTag,1.0,,,,,,,,,,Y
-2022-03-11,finops,reservation,,30.0,0.0,EUR,,,,,,,,,,,,,unused,az,N
-2022-03-11,shared1,shared1,"service:shared1,cloud_resource_id:resourceid1,",100.0,150.0,EUR,,,,,,,,,,,,,,az,N
-2022-03-11,shared1,shared1,,10.0,0.0,EUR,finops,reservation,,CloudTagSelector,100.0,True,,,,,,,,,N
-2022-03-11,shared2,instance1,"service:shared2,instance:instance1,cloud_resource_id:resourceid2,",20.0,30.0,EUR,,,,,,,,,,,,,,az,N
-2022-03-11,shared2,instance1,,2.0,0.0,EUR,finops,reservation,,CloudTagSelector,20.0,True,,,,,,,,,N
+2022-03-11,finops,reservation,,10.0,0.0,EUR,,,,,,,,,,,,,unused,az,N
+2022-03-11,finops,reservation,,5.0,0.0,EUR,,,,,,,,,,,,,unused,az,N
+2022-03-11,finops,reservation,,5.0,0.0,EUR,,,,,,,,,,,,,unused,az,N
+2022-03-11,finops,reservation,,10.0,0.0,EUR,,,,,,,,,,,,,unused,az,N
+2022-03-11,shared1,shared1,"service:shared1,reservation_zone:green,cloud_resource_id:resourceid1,",100.0,150.0,EUR,,,,,,,,,,,,,,az,N
+2022-03-11,shared1,shared1,,10.0,0.0,EUR,finops,reservation,,CloudTagSelector,100.0,'reservation_zone' in globals() and reservation_zone == 'green',,,,,,,,,N
+2022-03-11,shared2,instance1,"service:shared2,instance:instance1,reservation_zone:green,cloud_resource_id:resourceid2,",20.0,30.0,EUR,,,,,,,,,,,,,,az,N
+2022-03-11,shared2,instance1,,2.0,0.0,EUR,finops,reservation,,CloudTagSelector,20.0,'reservation_zone' in globals() and reservation_zone == 'green',,,,,,,,,N
 2022-03-11,shared2,instance1,"consumer_service:application1,consumer_instance:instance1,consumer_component:component1,",11.0,15.0,EUR,shared1,shared1,,Cost,22.0,,,,,,,,,,N
-2022-03-11,shared2,instance2,"service:shared2,instance:instance2,cloud_resource_id:resourceid3,",80.0,120.0,EUR,,,,,,,,,,,,,,az,N
-2022-03-11,shared2,instance2,,8.0,0.0,EUR,finops,reservation,,CloudTagSelector,80.0,True,,,,,,,,,N
+2022-03-11,shared2,instance2,"service:shared2,instance:instance2,reservation_zone:green,cloud_resource_id:resourceid3,",80.0,120.0,EUR,,,,,,,,,,,,,,az,N
+2022-03-11,shared2,instance2,,8.0,0.0,EUR,finops,reservation,,CloudTagSelector,80.0,'reservation_zone' in globals() and reservation_zone == 'green',,,,,,,,,N
 2022-03-11,shared2,instance2,"consumer_service:application2,consumer_instance:instance2,",44.0,60.0,EUR,shared1,shared1,,Cost,88.0,,,,,,,,,,N
 2022-03-11,x,x,"cloud_resource_id:resourceid0,",100.0,150.0,EUR,,,,,,,,,,,,,,az,Y
-2022-03-11,x,x,,10.0,0.0,EUR,finops,reservation,,CloudTagSelector,100.0,True,,,,,,,,,Y
+2022-03-11,x,x,,10.0,0.0,EUR,finops,reservation,,Key,100.0,,,,,,,,,,Y
 2022-03-11,x,x,,55.0,75.0,EUR,shared1,shared1,,Cost,110.0,,,,,,,,,,Y

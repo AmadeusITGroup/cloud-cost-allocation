@@ -1,5 +1,6 @@
 Date,ProviderService,ProviderInstance,ProviderCostAllocationType,ProviderCostAllocationCloudTagSelector,ProviderCostAllocationKey,ConsumerService,ConsumerInstance,ConsumerTags
-2022-03-11,finops,reservation,CloudTagSelector,True,,,,
+2022-03-11,finops,reservation,CloudTagSelector,'reservation_zone' in globals() and reservation_zone == 'green',,,,
+2022-03-11,finops,reservation,Key,,100,,,
 2022-03-11,shared1,,Cost,,,,,
 2022-03-11,shared1,,Cost,,,shared2,instance1,"consumer_service:application1,consumer_instance:instance1,consumer_component:component1"
 2022-03-11,shared1,,Cost,,,shared2,instance2,"consumer_service:application2,consumer_instance:instance2"
