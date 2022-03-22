@@ -1,15 +1,31 @@
 # Cloud cost allocation
 
-## General
-Mainstream cost management tools from vendors and from cloud providers use the following information available in billing data, in order to allocate costs:
-- *Resource containers*, like *Projects* in *Google Cloud Platform*, or *Subscriptions* and *Resource Groups* in *Azure*. For example, the cost of a given Azure subscription can be allocated to a given a cost center and business unit. 
-- *Tags*. For example, the cost of cloud resources tagged with *cost_center:1234* and *business_unit:Digital* are allocated to the *Cost Center 1234* and to the *Digital Business Unit*.
+## Overview
+This project provides tools for **shared, hierarchical cost allocation** based on user defined metrics.
 
-Such cost allocation methods do not address *hierarchical consumption*, where different workloads operated by different DevOps teams within the same company consume one another, a.k.a. *shared services* with multiple sharing levels. Such cost allocation methods do not also support the fact that some technical applications can serve different commercial products. In such a case, every product should be allocated a share of the cost of every application the product uses.
+## Introduction
+**Mainstream** cloud cost management **tools** from the CSPs or 3rd party vendors typically **rely on** the high level hierarchy of cloud objects (*Resource containers*, like **Projects** in *Google Cloud Platform*, or **Subscriptions** and *Resource Groups* in *Azure*) or **tags to allocate costs** to a given cost center / business unit.
 
+In addition, some tools support one level of cost re-allocation (e.g. based on fixed percentages, overall/specific costs of the consumers). Usually, this does not include the ability to use dynamic, custom defined metrics though.
+
+As a result, the cost allocation process of shared services is often rather
+- **imprecise**, since cost allocation is not done based on the actual consumption
+- **incomplete**, since shared costs, especially if hierarchical, are simply not allocated to their consumers, thus requiring additional work / tooling on top
+- **intransparent** and thus hard to action, since neither the key cost drivers nor their actual consumption (and thus angles for optimization) are visible to the consumers
+
+### Example
 ![Hierarchical service consumption example](./puml/hierarchical-service-consumption-example.svg)
 
-The cost allocation model proposed here supports such consumption hierarchy. Usage is taken into account: the more you use a service, the more you get cost allocated from it, the more you should optimize your usage of it. What's the unit of usage? It's up to the service owner to say. Conceptually, this unit should relate to the FinOps North Star Metrics of the service, i.e. a functional metric that measures the throughput of the service and grows along with the cost.
+In this example, classic, usage based cost allocation would likely stop at the cloud resource level (thus only the container service would be visible). With additional instrumentation these costs could be split into the direct costs for each of the services running on it. But the costs of the shared monitoring or history service would not be properly allocated, let alone their contributions to the business services behind that.
+
+This might not be a problem as long as those costs are small and the hierarchy of services using each other is shallow. But in large production environments the key cost drivers for a given business service might thus be hidden making it very difficult to assess the total costs of ownership of a given service.
+
+Usually, the only way to resolve this issue is avoid sharing services by duplicating them. While this can work in some cases it often also results in higher overall costs, both for deploying as well as for managing these services.
+
+The goal of the cost allocation model proposed here is to support such complex consumption hierarchies in a usage based fashion with custom North Star Metrics up the business service level.
+
+This does not only enable the more accurate and complete cost allocation required to make proper business decisions and forecasts, but also yields more actionable outputs thanks to the transparency on unit costs, consumption and their evolution over time.
+Furthermore, this also allows service owners to easily identify their main cost drivers in the service hierarchy. This in turn helps to ensure that optimization efforts can be focused on the most promising services as well as to simulate and later measure the (actual) benefits this (can) bring(s) to all services along the consumption chain.
 
 ![Hierarchical service consumption example](./puml/hierarchical-service-cost-allocation-example.svg)
 
@@ -40,52 +56,76 @@ Keep calm and drink coffee.
 
 ## Model principles and considerations
 
-1. The model does not rely on resource containers (GCP projects, Azure Subscriptions, ...), but only on cloud resource tags, in order to work transparently for all cloud providers. 
-
-2. On top of tags, the model uses cost allocation data to be provided by Service owners.
-  * If a Service owner provides no cost allocation data, the Service keeps its cost for itself.
-  * Cost allocation is based on keys: the cost of a service is split and dispatched proportionally to cost allocation keys. 
-  * Ideally, all cloud costs should be allocated to Products. This means every Service Owner should provide cost allocation data to allocate the Service cost to consumer Services or Products.
-
-3. Services, Products and North Star Metrics are discovered through tags and cost allocation data.
-  * Products and services are set to lower case at data ingestion.
-  * Data quality can be achieved by pre-processing data and checking it against Product and Service catalogs, which is not covered here.
-
-4. The pivot of the cost allocation is Instances.
-  * Every Service owner should define properly the Service Instances to be in position to generate cost allocation data for each of them.
-  * Dimensions are not structuring the cost allocation but rather intended to serve as commonly used dimensions for cost reporting.
-
-5. Both Products and Services have their North Star Metrics.
-   * Service North Star Metrics, which are to be defined by DevOps, are useful to monitor the cost efficiency of Services and to drive the cost allocation to Consumer Services.
-   * Product North Star Metrics, which are to be defined by Product Managers, are useful to monitor the cloud cost health of Products and to take business decisions.
-   * Service North Star Metrics can be a combination (*ProviderMeterName1*, *ProviderMeterName2*, ...).
-     * For example, a North Star Metric of a container service could be the combination of container CPU request and container Memory request: the Cost Allocation Keys should reflect the two.
-     * Another example is a data lake with multiple consumers, i.e. a shared data lake. The cost of the data lake will grow essentially with the data size. The North Star Metric reported in cost allocation data for every consumer could be the combination of the data lake size share of the consumer, which is not predictable to the consumer but is driving the cost allocation, and of the actually consumed data size, which is predictable for the consumer and useful to report, in order to enable consumer cost optimization. 
-   * A Product or a Service can have multiple North Star Metrics, corresponding to different Cost Allocation Items. For example, a container service can have a North Star Metric for the compute cost and another North Star Metric for the storage, which represent two independent cost scaling dimensions.
-
-6. Cost items are tagged.
-   * Cost Item tags come from cloud resource tags and from consumer tags in cost allocation data.
-   * Tags are not only useful in cost reporting, but they can be used to structure the cost allocation thanks to *ProviderTagSelector*. You can see an example in the test `test1`.
-   * Note that Dimensions can be seen conceptually as specific Tags that have been promoted as first-class citizens in the model for cost reporting.
-    
-7. A Cost Allocation Item can allocate cost both to a Service and to a Product.
-  * Service cost allocation and product cost allocation work in parallel. The test `test2` illustrates how these cost allocation flows work together.
-  * Service cost allocation basically propagates costs through Cost Allocation Keys. The cost of a Service is made of the costs of cloud resources it uses directly and of the cost shares of the other Services it consumes.  
-  * Unlike Service cost allocation, Product cost allocation propagates only costs that have not been allocated yet to Products in the downstream cost allocation hierarchy.
-  * Assuming that all cloud resources are properly tagged and that Services eventually allocate all their costs to Products, the cost of all cloud resources must be equal to the cost of all products.
-    
-8. Both On-demand Costs and Amortized Costs are part of the model.
-  * Reporting the two is useful for Service owners (DevOps) and Product Managers to see the savings made thanks to the reservation purchases.
-  * In other words, using SKUs in the Reservation Green/Red zones defined by the FinOps team is a cost rate optimization by DevOps, whose benefit can be simply reported as: Reservation saving = On-Demand Cost - Amortized Cost.
-
-9. Cost allocation cycles are not supported. When cycles are detected, they are broken.
+1. The model relies solely on tags in order to work transparently for all cloud providers
+    * Use policies to propagate tags from containers (GCP projects, Azure Subscriptions, ...) to individual resources if required
+2. On top of that, the model uses cost allocation data provided by the service owners
+    * If a service owner provides no cost allocation data, the service becomes a leaf in the hierarchy and thus owns all costs allocated along the chain
+    * Default (static) cost allocation data can be provided if required
+    * Cost allocation is based on keys: the cost of a service is split and dispatched proportionally to cost allocation keys
+    * Ideally, all cloud costs should be allocated to products. This means every service owner should provide cost allocation data to allocate the service cost to consumer services and/or products
+3. Services, products and north star metrics are discovered and linked through tags and the cost allocation data
+    * Product and service names are case-insensitive to avoid mistakes
+    * It is strongly recommended to use policies or other means to cross-check these names against the relevant product and service catalogs
+4. The pivot of the cost allocation is the *Instance*
+    * Service owners should keep track of their instances to be in position to generate cost allocation data for each of them
+        * Naming conventions are strongly recommended
+    * All other dimensions (e.g. environment) do not structure the cost allocation but rather provide commonly used dimensions for cost reporting
+5. Both products and services have should define their North Star Metrics (NSMs)
+    * North Star Metrics of services drive the cost allocation to their consuming services
+    * In addition, they are useful to monitor cost efficiency, perform forecast & simulate and track the benefit of optimizations
+    * They should be defined by the service owner and scale more or less proportionally to the service costs
+    * Product NSMs should be a functional measure of the value delivered by a given product
+    * Thus, they are key inputs to measure product profitability, do forecasts and to take business decisions
+    * They should be defined by the respective Product Manager
+    * A given product or service can have more than one North Star Metric
+        * Example 1: Container service
+            * A North Star Metric of a container service could be the combination of container CPU request and container Memory request
+            * In this case the Cost Allocation Keys be computed out of the two metrics
+        * Example 2: Shared data lake
+            * Here the cost driver could be the amount of data being stored
+            * Since this volume is hard to predict and optimize, this could be further broken down into the daily volume stored + the retention time
+6. Cost items are tagged
+    * Cost item tags are the join between the cloud resource tags and the consumer tags in cost allocation data
+    * Note that *Dimensions* can be seen conceptually as specific *tags* that have been promoted as first-class citizens in the model for cost reporting
+    * The *ProviderTagSelector* field in cost allocation data enables a finer grained cost selection and allocation along additional axis (e.g. customer)
+7. A Cost Allocation Item can allocate cost both to a service and to a product
+    * Service cost allocation and product cost allocation work in parallel
+        * The test `test2` illustrates how these cost allocation flows work together
+    * Service cost allocation basically propagates costs through Cost Allocation Keys
+    * The cost of a service is the sum of
+        * The costs of cloud resources it uses directly and
+        * Of the cost shares of the other services it consumes
+        * => Total cost of ownership
+    * Contrary this, only the following costs are assigned to products from each service
+        * The costs of cloud resources it uses directly and
+        * Any costs of consumed services that did not report their costs to products
+    * This ensures that there is no double counting of costs at product level
+    * Assuming that all cloud resources are properly tagged and that services eventually allocate all their costs to products, then the costs of all cloud resources must be equal to the cost of all products
+        * Similarly, the costs of a product that exclusively uses a single service would be equal to the total cost of that service
+8. On-demand costs and amortized costs are supported in parallel by the model
+    * Reporting the two can be useful for service owners and product managers alike to see the savings made thanks to the reservation purchases
+    * Reservation savings = On-demand costs - amortized costs
+9. Cycles in the cost allocation are ignored
+    * Example: The monitoring system running on top of the container service is also used by the container service itself
+        * In this case part of the costs of the monitoring should be assigned back to the container service
+        * But since the costs of the container service are allocated to the monitoring (in part) this creates a loop
+    * For now, the cost allocation simply stops when such a loop is encountered
+        * And the costs remain where they last where
+    * It is not predictable if that would be the container service or the monitoring service in this case
+        * It is planned to resolve this issue by adding a prioritization to the cost allocation
 
 ## Bittersweet ways for a service to allocate its cost
 
-The basic and preferred way for a service to allocate its cost is to provide cost allocation data containing cost allocation keys to split and to dispatch the cost between the consumer services and products.
-There are alternatives:
-- Use specific configurable *consumer service and product tags*.
-- Use specific *cost allocation type* in cost allocation data.
+The standard way for a service to allocate cost to its consumers is to provide dynamic cost allocation data containing cost allocation keys
+Three alternatives exist to this:
+1. Use specific configurable *consumer service and product tags*
+    * While providing an easy way to dynamically allocate costs, it does not offer any means to track usage and thus provides no hint to consumers on what drives their costs (black box)
+    * See section *Consumer service and product tags* for details
+2. Use specific *cost allocation type* in cost allocation data
+    * E.g. to allocate a cost share proportional to the amortized costs of the consumers
+    * See section *Cost allocation types in cost allocation data* below for details
+3. Use a static cost allocation file
+    * Instead of generating and using accurate consumption data, a static approach (potentially updated at certain intervals) might be sufficient in some cases / for starters
 
 ### Consumer service and product tags
 
@@ -103,22 +143,29 @@ Examples are available in the tests `test3` and `test4`.
 ### Cost allocation types in cost allocation data
 
 The default value of *ProviderCostAllocationType* in cost allocation data is *'Key'*.
-Two other types of cost allocation are supported. They should be used on purpose, as they are quite tricky:
-- *'CloudTagSelector'*. The consumer service instances are not explicitly specified in the cost allocation data: they are inferred as the ones consuming the cloud cost items whose tags match the *ProviderCostAllocationCloudTagSelector* expression. 
-The cost allocation keys are set as the amortized costs of the matching cloud cost items.
-This type of cost allocation is convenient to allocate costs to consumer services that run directly on the cloud proportionally to their cloud costs.
-Note that service cost allocation is "all or nothing" for a service instance: if consumer tags are set for some cost items of a service instance but not for others, then all the cost of the service instance will be allocated based on the cost allocation keys generated from the consumer tags that are set.
-- *'Cost'*. The cost is allocated to the consumer services proportionally to their amortized costs.
-Technically, amortized costs are globally allocated to service instances in a first time, in ignoring this type of cost allocation.
-The amortized costs resulting from this cost allocation are used in a second time as cost allocation keys to perform the actual cost allocation. 
-Although this type of cost allocation is convenient to avoid bothering about cost allocation keys, it can produce results that are hardly predictable and understandable, depending on the complexity of the global cost allocation hierarchy.
+Two other types of cost allocation are supported:
+1. *'CloudTagSelector'*
+    * The consumer service instances are not explicitly specified in the cost allocation data
+        * They are inferred as the ones consuming the cloud cost items whose tags match the *ProviderCostAllocationCloudTagSelector* expression
+    * The cost allocation keys are set as the amortized costs of the matching cloud cost items
+    * This type of cost allocation is convenient to allocate costs to consumer services that run directly on the cloud proportionally to their cloud costs
+    * Note that service cost allocation is "all or nothing" for each service instance
+        * If consumer tags are set for some cost items of a service instance but not for others, then all the cost of the service instance will be allocated based on the cost allocation keys generated from the consumer tags that are set
+        * In other words: The costs resources that do not have consumer tags will be allocated together with the costs of resources that have tags
+2. *'Cost'*
+    * The cost is allocated to the consumer services proportionally to their amortized costs
+    * Technically, amortized costs are globally allocated to service instances in a first time, in ignoring this type of cost allocation
+    * The amortized costs resulting from this cost allocation are used in a second pass as cost allocation keys to perform the actual cost allocation
+    * Although this type of cost allocation is convenient to avoid bothering about cost allocation keys, it can produce results that are hardly predictable and understandable, depending on the complexity of the global cost allocation hierarchy
 
 Examples of *'CloudTagSelector'* and *'Cost'* cost allocation types are available in the test `test3`.
 
-An even more general type of cost allocation could be considered:
-- *'ConsumerTagSelector'*. Cost would be allocated to service instances whose cost items match the *ProviderCostAllocationConsumerTagSelector* expression proportionally to their amortized costs.
-This type of cost allocation is maybe too tricky, too unpredictable. It was not needed so far, so not implemented.
-  
+In theory, an even more general type of cost allocation could be considered:
+- *'ConsumerTagSelector'*
+    * Cost would be allocated to service instances whose cost items match the *ProviderCostAllocationConsumerTagSelector* expression proportionally to their amortized costs
+    * While being more generic, this type of cost allocation can be even less predictable
+    * This type of cost allocation has not be required and thus implemented yet
+
 ## Configuration
 
 Python `configparser` is used to manage the configuration. Here are the configuration parameters with examples:
@@ -144,12 +191,12 @@ NumberOfProviderMeters = 2
 
 # The tag keys for service and instance
 # In case of list, first matching key is used
-Service = service,service2
+Service = service,svc
 Instance = instance
 
 # The tag keys for the configured dimensions
 # In case of list, first matching key is used
-Component = component,component2
+Component = component,comp
 Environment = environment
 
 # The consumer tag keys for service, instance and the configured dimensions
