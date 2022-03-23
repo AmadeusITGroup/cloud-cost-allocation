@@ -1040,7 +1040,7 @@ class CloudCostAllocator(object):
                         if provider_meter_value:
                             try:
                                 float(provider_meter_value)
-                            except ValueError:
+                            except (TypeError, ValueError):
                                 error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
                                       "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
                                       "is not a float")
@@ -1053,14 +1053,16 @@ class CloudCostAllocator(object):
                           "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             if consumer_cost_item.provider_cost_allocation_type == 'Key':
-                if 'ProviderCostAllocationKey' in line:
+                key_str = ""
+                if 'ProviderCostAllocationKey' in line and line['ProviderCostAllocationKey']:
                     try:
-                        consumer_cost_item.provider_cost_allocation_key = float(line['ProviderCostAllocationKey'])
-                    except ValueError:
+                        key_str = line['ProviderCostAllocationKey']
+                        consumer_cost_item.provider_cost_allocation_key = float(key_str)
+                    except (TypeError, ValueError):
                         pass
                 if consumer_cost_item.provider_cost_allocation_key == 0.0:
                     error("Skipping cost allocation key line with non-float " +
-                          " ProviderCostAllocationKey: '" + line['ProviderCostAllocationKey'] + "'" +
+                          " ProviderCostAllocationKey: '" + key_str + "'" +
                           " for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
