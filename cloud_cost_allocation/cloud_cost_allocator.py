@@ -668,7 +668,7 @@ class CloudCostAllocator(object):
         'service_instances',  # type: dict[ServiceInstance]
     )
 
-    def __init__(self, cost_item_factory: ConfigParser, config: ConfigParser):
+    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
         self.config = config
         self.cost_item_factory = cost_item_factory
         self.service_instances = {}
