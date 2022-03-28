@@ -2,7 +2,8 @@
 
 # Standard imports
 from configparser import ConfigParser
-from csv import DictWriter, reader
+from csv import DictWriter
+from filecmp import cmp
 import logging
 import os
 import sys
@@ -100,12 +101,7 @@ class Test(unittest.TestCase):
     def test_test4(self):
         self.run_test('test4')
 
-    # Returns a Python set from CSV file
-    @staticmethod
-    def get_set(file):
-        return set(map(tuple, reader(file)))
-
-    # Auxiliary method to run a test
+    # Auxiliary method
     def run_test(self, test):
 
         # Set logging INFO level
@@ -154,15 +150,8 @@ class Test(unittest.TestCase):
 
         # Compare allocated results with reference
         reference_filename = directory + "/" + test + "/" + test + "_allocated_cost.csv"
-        reference_file = open(reference_filename, 'r', newline='')
-        reference_set = Test.get_set(reference_file)
-        reference_file.close()
-        output_file = open(allocated_costs_filename, 'r', newline='')
-        output_set = Test.get_set(output_file)
-        output_file.close()
-        difference_set = reference_set ^ output_set
-        assert_message = test + " failed"
-        self.assertTrue(not difference_set, assert_message)
+        assert_message = test + ": reference cmp failed"
+        self.assertTrue(cmp(allocated_costs_filename, reference_filename, shallow=False), assert_message)
 
 
 if __name__ == '__main__':
