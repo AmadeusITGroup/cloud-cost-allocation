@@ -1029,14 +1029,18 @@ class CloudCostAllocator(object):
             if 'NumberOfProviderMeters' in self.config['General']:
                 nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
                 for i in range(nb_provider_meters):
+                    provider_meter_name = ''
                     if 'ProviderMeterName%d' % (i + 1) in line:
-                        consumer_cost_item.provider_meter_names.append(line['ProviderMeterName%d' % (i + 1)])
+                        provider_meter_name = line['ProviderMeterName%d' % (i + 1)]
+                    consumer_cost_item.provider_meter_names.append(provider_meter_name)
+                    provider_meter_unit = ''
                     if 'ProviderMeterUnit%d' % (i + 1) in line:
-                        consumer_cost_item.provider_meter_units.append(line['ProviderMeterUnit%d' % (i + 1)])
+                        provider_meter_unit = line['ProviderMeterUnit%d' % (i + 1)]
+                    consumer_cost_item.provider_meter_units.append(provider_meter_unit)
+                    provider_meter_value = ''
                     if 'ProviderMeterValue%d' % (i + 1) in line:
                         provider_meter_value_column = 'ProviderMeterValue%d' % (i + 1)
                         provider_meter_value = line[provider_meter_value_column]
-                        consumer_cost_item.provider_meter_values.append(provider_meter_value)
                         if provider_meter_value:
                             try:
                                 float(provider_meter_value)
@@ -1044,6 +1048,7 @@ class CloudCostAllocator(object):
                                 error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
                                       "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
                                       "is not a float")
+                    consumer_cost_item.provider_meter_values.append(provider_meter_value)
 
             consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
             if 'ProviderCostAllocationType' in line:
