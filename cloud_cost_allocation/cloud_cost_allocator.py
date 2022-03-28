@@ -837,7 +837,7 @@ class CloudCostAllocator(object):
                     # Add cloud consumer cost item
                     new_consumer_cost_items.append(new_consumer_cost_item)
 
-    def get_cost_allocation_key_csv_header(self):
+    def get_cost_allocation_key_csv_header(self) -> list[str]:
         csv_header = [
             'Date',
             'ProviderService',
@@ -873,7 +873,7 @@ class CloudCostAllocator(object):
 
         return csv_header
 
-    def get_cost_item_csv_header(self):
+    def get_cost_item_csv_header(self) -> list[str]:
         csv_header = [
             'Date',
             'Service',
