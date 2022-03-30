@@ -4,9 +4,10 @@ from csv import DictReader
 from cloud_cost_allocation import cloud_cost_allocator
 from configparser import ConfigParser
 from datetime import date
-import logging
+from logging import error
 import re
-from typing import TextIO
+import validators
+import requests
 
 
 class AzureEaAmortizedCostReader(object):
@@ -23,10 +24,19 @@ class AzureEaAmortizedCostReader(object):
         self.config = config
         self.cost_item_factory = cost_item_factory
 
-    def read(self, cost_items: list[cloud_cost_allocator.CloudCostItem], cloud_cost_text_io: TextIO) -> None:
+    def read(self, cost_items: list[cloud_cost_allocator.CloudCostItem], cloud_cost_key: str) -> None:
+        if validators.url(cloud_cost_key):
+            response = requests.get(cloud_cost_key)
+            reader = DictReader(response.iter_lines())
+            self.read_stream(cost_items, reader)
+        else:
+            with open(cloud_cost_key, 'r') as cloud_cost_key_text_io:
+                reader = DictReader(cloud_cost_key_text_io)
+                self.read_stream(cost_items, reader)
+
+    def read_stream(self, cost_items: list[cloud_cost_allocator.CloudCostItem], reader: DictReader) -> None:
 
         # Read cost lines
-        reader = DictReader(cloud_cost_text_io)
         for line in reader:
 
             # Initiate cloud cost item
@@ -38,7 +48,7 @@ class AzureEaAmortizedCostReader(object):
             # Set date
             azure_date_str = line["Date"].strip()
             if not re.match('\d\d/\d\d/\d\d\d\d', azure_date_str):
-                logging.error("Expected Azure date format MM/DD/YYYY, but got: " + azure_date_str)
+                error("Expected Azure date format MM/DD/YYYY, but got: " + azure_date_str)
                 continue
             azure_date = date(int(azure_date_str[6:]), int(azure_date_str[:2]), int(azure_date_str[3:5]))
             cloud_cost_item.date_str = azure_date.strftime(self.config['General']['DateFormat'])
@@ -68,7 +78,7 @@ class AzureEaAmortizedCostReader(object):
                         value = key_value_match.group(2).strip().lower()
                         cloud_cost_item.tags[key] = value
                     else:
-                        logging.error("Unexpected tag format in cost stream: '" + tag + "'")
+                        error("Unexpected tag format in cost stream: '" + tag + "'")
 
             # Process unused reservation
             if line['ChargeType'] == 'UnusedReservation':

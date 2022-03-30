@@ -119,19 +119,15 @@ class Test(unittest.TestCase):
         cloud_cost_items = []
         cloud_cost_reader =\
             cloud_cost_allocation.azure_ea_amortized_cost_reader.AzureEaAmortizedCostReader(cost_item_factory, config)
-        cloud_costs = open(directory + "/" + test + "/" + test + "_cloud_cost.csv", 'r')
-        cloud_cost_reader.read(cloud_cost_items, cloud_costs)
+        cloud_cost_reader.read(cloud_cost_items, directory + "/" + test + "/" + test + "_cloud_cost.csv")
         for cloud_cost_item in cloud_cost_items:
             cloud_cost_item.cloud = 'az'
             cloud_cost_item.add_cloud_resource_id_tag(cloud_cost_item.cloud_cost_line['ResourceId'])
-        cloud_costs.close()
 
         # Read keys
         consumer_cost_items = []
         cloud_cost_allocator = TestCloudCostAllocator(cost_item_factory, config)
-        cost_allocation_keys = open(directory + "/" + test + "/" + test + "_cost_allocation_keys.csv", 'r')
-        cloud_cost_allocator.read_cost_allocation_key(consumer_cost_items, cost_allocation_keys)
-        cost_allocation_keys.close()
+        cloud_cost_allocator.read_cost_allocation_key(consumer_cost_items, directory + "/" + test + "/" + test + "_cost_allocation_keys.csv")
 
         # Allocate costs
         assert_message = test + ": cost allocation failed"
@@ -139,9 +135,8 @@ class Test(unittest.TestCase):
 
         # Write allocated costs
         allocated_costs_filename = directory + "/" + test + "/" + test + "_out.csv"
-        allocated_costs = open(allocated_costs_filename, 'w', newline='')
-        cloud_cost_allocator.write_allocated_cost(allocated_costs)
-        allocated_costs.close()
+        with open(allocated_costs_filename, 'w', newline='') as allocated_costs:
+            cloud_cost_allocator.write_allocated_cost(allocated_costs)
 
         # Compare allocated results with reference
         reference_filename = directory + "/" + test + "/" + test + "_allocated_cost.csv"

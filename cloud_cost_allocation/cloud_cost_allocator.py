@@ -2,6 +2,8 @@
 
 from configparser import ConfigParser
 from csv import DictReader, DictWriter
+import validators
+import requests
 from io import StringIO
 from logging import info, error
 import re
@@ -966,10 +968,20 @@ class CloudCostAllocator(object):
 
     def read_cost_allocation_key(self,
                                  cost_items: list[ConsumerCostItem],
-                                 cost_allocation_key_stream: TextIO) -> None:
+                                 cost_allocation_key: str) -> None:
+        if validators.url(cost_allocation_key):
+            response = requests.get(cost_allocation_key)
+            reader = DictReader(response.iter_lines())
+            self.read_cost_allocation_key_stream(cost_items, reader)
+        else:
+            with open(cost_allocation_key, 'r') as cost_allocation_key_text_io:
+                reader = DictReader(cost_allocation_key_text_io)
+                self.read_cost_allocation_key_stream(cost_items, reader)
 
+    def read_cost_allocation_key_stream(self,
+                                 cost_items: list[ConsumerCostItem],
+                                 reader: DictReader) -> None:
         # Read lines
-        reader = DictReader(cost_allocation_key_stream)
         for line in reader:
 
             # Create item
