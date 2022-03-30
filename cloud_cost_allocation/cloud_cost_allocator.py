@@ -670,7 +670,7 @@ class CloudCostAllocator(object):
         'service_instances',  # type: dict[ServiceInstance]
     )
 
-    def __init__(self, cost_item_factory: ConfigParser, config: ConfigParser):
+    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
         self.config = config
         self.cost_item_factory = cost_item_factory
         self.service_instances = {}
@@ -839,7 +839,7 @@ class CloudCostAllocator(object):
                     # Add cloud consumer cost item
                     new_consumer_cost_items.append(new_consumer_cost_item)
 
-    def get_cost_allocation_key_csv_header(self):
+    def get_cost_allocation_key_csv_header(self) -> list[str]:
         csv_header = [
             'Date',
             'ProviderService',
@@ -866,6 +866,10 @@ class CloudCostAllocator(object):
             'ConsumerService',
             'ConsumerInstance',
             'ConsumerTags',
+            'Product',
+            'ProductMeterName',
+            'ProductMeterUnit',
+            'ProductMeterValue',
         ]
 
         # Add dimensions
@@ -875,7 +879,7 @@ class CloudCostAllocator(object):
 
         return csv_header
 
-    def get_cost_item_csv_header(self):
+    def get_cost_item_csv_header(self) -> list[str]:
         csv_header = [
             'Date',
             'Service',
@@ -1041,21 +1045,26 @@ class CloudCostAllocator(object):
             if 'NumberOfProviderMeters' in self.config['General']:
                 nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
                 for i in range(nb_provider_meters):
+                    provider_meter_name = ''
                     if 'ProviderMeterName%d' % (i + 1) in line:
-                        consumer_cost_item.provider_meter_names.append(line['ProviderMeterName%d' % (i + 1)])
+                        provider_meter_name = line['ProviderMeterName%d' % (i + 1)]
+                    consumer_cost_item.provider_meter_names.append(provider_meter_name)
+                    provider_meter_unit = ''
                     if 'ProviderMeterUnit%d' % (i + 1) in line:
-                        consumer_cost_item.provider_meter_units.append(line['ProviderMeterUnit%d' % (i + 1)])
+                        provider_meter_unit = line['ProviderMeterUnit%d' % (i + 1)]
+                    consumer_cost_item.provider_meter_units.append(provider_meter_unit)
+                    provider_meter_value = ''
                     if 'ProviderMeterValue%d' % (i + 1) in line:
                         provider_meter_value_column = 'ProviderMeterValue%d' % (i + 1)
                         provider_meter_value = line[provider_meter_value_column]
-                        consumer_cost_item.provider_meter_values.append(provider_meter_value)
                         if provider_meter_value:
                             try:
                                 float(provider_meter_value)
-                            except ValueError:
+                            except (TypeError, ValueError):
                                 error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
                                       "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
                                       "is not a float")
+                    consumer_cost_item.provider_meter_values.append(provider_meter_value)
 
             consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
             if 'ProviderCostAllocationType' in line:
@@ -1065,14 +1074,16 @@ class CloudCostAllocator(object):
                           "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             if consumer_cost_item.provider_cost_allocation_type == 'Key':
-                if 'ProviderCostAllocationKey' in line:
+                key_str = ""
+                if 'ProviderCostAllocationKey' in line and line['ProviderCostAllocationKey']:
                     try:
-                        consumer_cost_item.provider_cost_allocation_key = float(line['ProviderCostAllocationKey'])
-                    except ValueError:
+                        key_str = line['ProviderCostAllocationKey']
+                        consumer_cost_item.provider_cost_allocation_key = float(key_str)
+                    except (TypeError, ValueError):
                         pass
                 if consumer_cost_item.provider_cost_allocation_key == 0.0:
                     error("Skipping cost allocation key line with non-float " +
-                          " ProviderCostAllocationKey: '" + line['ProviderCostAllocationKey'] + "'" +
+                          " ProviderCostAllocationKey: '" + key_str + "'" +
                           " for ProviderService '" + consumer_cost_item.provider_service + "'")
                     continue
             elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":

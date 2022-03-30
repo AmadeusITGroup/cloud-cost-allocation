@@ -29,7 +29,11 @@ class TestCloudCostItem(cloud_cost_allocation.cloud_cost_allocator.CloudCostItem
         cloud_cost_allocation.cloud_cost_allocator.CloudCostItem.__init__(self)
         self.cloud = ""
 
-    def add_cloud_resource_id_tag (self, cloud_resource_id: str):
+    def enhance(self):
+        # Set Azure as cloud provider
+        self.cloud = 'az'
+        # Set cloud resource id
+        cloud_resource_id = self.cloud_cost_line['ResourceId']
         if cloud_resource_id:
             self.tags['cloud_resource_id'] = cloud_resource_id.lower()
 
@@ -49,7 +53,9 @@ class TestCloudCostAllocator(cloud_cost_allocation.cloud_cost_allocator.CloudCos
     Tests the addition of a new field in allocated costs
     """
 
-    def __init__(self, cost_item_factory: ConfigParser, config: ConfigParser):
+    def __init__(self,
+                 cost_item_factory: cloud_cost_allocation.cloud_cost_allocator.CostItemFactory,
+                 config: ConfigParser):
         cloud_cost_allocation.cloud_cost_allocator.CloudCostAllocator.__init__(self, cost_item_factory, config)
 
     def write_allocated_cost(self, allocated_cost_stream: TextIO) -> None:
@@ -123,6 +129,7 @@ class Test(unittest.TestCase):
         for cloud_cost_item in cloud_cost_items:
             cloud_cost_item.cloud = 'az'
             cloud_cost_item.add_cloud_resource_id_tag(cloud_cost_item.cloud_cost_line['ResourceId'])
+            cloud_cost_item.enhance()
 
         # Read keys
         consumer_cost_items = []
