@@ -864,6 +864,10 @@ class CloudCostAllocator(object):
             'ConsumerService',
             'ConsumerInstance',
             'ConsumerTags',
+            'Product',
+            'ProductMeterName',
+            'ProductMeterUnit',
+            'ProductMeterValue',
         ]
 
         # Add dimensions
