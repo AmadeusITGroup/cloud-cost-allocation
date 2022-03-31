@@ -1,13 +1,11 @@
 # coding: utf-8
 
-from csv import DictReader
-from cloud_cost_allocation import cloud_cost_allocator
 from configparser import ConfigParser
 from datetime import date
 from logging import error
 import re
-import validators
-import requests
+
+from cloud_cost_allocation.cloud_cost_allocator import CostItemFactory, CloudCostItem
 
 
 class AzureEaAmortizedCostReader(object):
@@ -20,24 +18,14 @@ class AzureEaAmortizedCostReader(object):
         'cost_item_factory',  # type: cloud_cost_allocator.CostItemFactory
     )
 
-    def __init__(self, cost_item_factory: cloud_cost_allocator.CostItemFactory, config: ConfigParser):
+    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
         self.config = config
         self.cost_item_factory = cost_item_factory
 
-    def read(self, cost_items: list[cloud_cost_allocator.CloudCostItem], cloud_cost_key: str) -> None:
-        if validators.url(cloud_cost_key):
-            response = requests.get(cloud_cost_key)
-            reader = DictReader(response.iter_lines())
-            self.read_stream(cost_items, reader)
-        else:
-            with open(cloud_cost_key, 'r') as cloud_cost_key_text_io:
-                reader = DictReader(cloud_cost_key_text_io)
-                self.read_stream(cost_items, reader)
-
-    def read_stream(self, cost_items: list[cloud_cost_allocator.CloudCostItem], reader: DictReader) -> None:
+    def read(self, cost_items: list[CloudCostItem], cost_lines) -> None:
 
         # Read cost lines
-        for line in reader:
+        for line in cost_lines:
 
             # Initiate cloud cost item
             cloud_cost_item = self.cost_item_factory.create_cloud_cost_item()

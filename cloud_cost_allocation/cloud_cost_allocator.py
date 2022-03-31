@@ -1,14 +1,10 @@
 # coding: utf-8
 
 from configparser import ConfigParser
-from csv import DictReader, DictWriter
-import validators
-import requests
 from io import StringIO
 from logging import info, error
 import re
 import sys
-from typing import TextIO
 
 
 class CostItem(object):
@@ -91,20 +87,41 @@ class CostItem(object):
         # Must be implemented in child classes
         error("Unexpected call to CostItem.visit")
 
-    def write_to_csv_row(self, csv_row: dict[str]) -> None:
+    def export(self) -> dict[str]:
         # Overridden in child classes
-        csv_row['Date'] = self.date_str
-        csv_row['Service'] = self.service
-        csv_row['Instance'] = self.instance
+        row = {}
+        row['Date'] = self.date_str
+        row['Service'] = self.service
+        row['Instance'] = self.instance
         for dimension_key, dimension_value in self.dimensions.items():
-            csv_row[dimension_key] = dimension_value
+            row[dimension_key] = dimension_value
         tags_str = StringIO()
         for key, value in self.tags.items():
             tags_str.write(key + ":" + value + ",")
-        csv_row['Tags'] = tags_str.getvalue()
-        csv_row['AmortizedCost'] = str(self.amortized_cost)
-        csv_row['OnDemandCost'] = str(self.on_demand_cost)
-        csv_row['Currency'] = self.currency
+        row['Tags'] = tags_str.getvalue()
+        row['AmortizedCost'] = str(self.amortized_cost)
+        row['OnDemandCost'] = str(self.on_demand_cost)
+        row['Currency'] = self.currency
+        return row
+
+    def getHeaders(self) -> list[str]:
+        headers = [
+            'Date',
+            'Service',
+            'Instance'
+        ]
+
+        for dimension_key, _ in self.dimensions.items():
+            headers.extend(dimension_key)
+        for key, _ in self.tags.items():
+            headers.extend(key)
+
+        headers.extend('Tags')
+        headers.extend('AmortizedCost')
+        headers.extend('OnDemandCost')
+        headers.extend('Currency')
+
+        return headers
 
 
 class CloudCostItem(CostItem):
@@ -187,9 +204,6 @@ class CloudCostItem(CostItem):
             self.cost = self.cloud_amortized_cost
         else:
             self.cost = self.cloud_on_demand_cost
-
-    def write_to_csv_row(self, csv_row: dict[str]) -> None:
-        CostItem.write_to_csv_row(self, csv_row)
 
 
 class ConsumerCostItem(CostItem):
@@ -332,34 +346,74 @@ class ConsumerCostItem(CostItem):
                     # Cost goes to item, and so to the instance containing this item
                     self.cost = cost
 
-    def write_to_csv_row(self, csv_row: dict[str]) -> None:
-        CostItem.write_to_csv_row(self, csv_row)
-        csv_row['ProviderService'] = self.provider_service
-        csv_row['ProviderInstance'] = self.provider_instance
-        csv_row['ProviderTagSelector'] = self.provider_tag_selector
-        csv_row['ProviderCostAllocationType'] = self.provider_cost_allocation_type
-        csv_row['ProviderCostAllocationKey'] = str(self.provider_cost_allocation_key)
-        csv_row['ProviderCostAllocationCloudTagSelector'] = self.provider_cost_allocation_cloud_tag_selector
+    def export(self) -> dict[str]:
+        row = super().export()
+        row['ProviderService'] = self.provider_service
+        row['ProviderInstance'] = self.provider_instance
+        row['ProviderTagSelector'] = self.provider_tag_selector
+        row['ProviderCostAllocationType'] = self.provider_cost_allocation_type
+        row['ProviderCostAllocationKey'] = str(self.provider_cost_allocation_key)
+        row['ProviderCostAllocationCloudTagSelector'] = self.provider_cost_allocation_cloud_tag_selector
         index = 0
         for provider_meter_name in self.provider_meter_names:
-            csv_row['ProviderMeterName%s' % (index+1)] = provider_meter_name
+            row['ProviderMeterName%s' % (index+1)] = provider_meter_name
             index += 1
         index = 0
         for provider_meter_unit in self.provider_meter_units:
-            csv_row['ProviderMeterUnit%s' % (index + 1)] = provider_meter_unit
+            row['ProviderMeterUnit%s' % (index + 1)] = provider_meter_unit
             index += 1
         index = 0
         for provider_meter_value in self.provider_meter_values:
-            csv_row['ProviderMeterValue%s' % (index + 1)] = provider_meter_value
+            row['ProviderMeterValue%s' % (index + 1)] = provider_meter_value
             index += 1
-        csv_row['Product'] = self.product
+        row['Product'] = self.product
         if self.product:
-            csv_row['ProductAmortizedCost'] = self.product_amortized_cost
-            csv_row['ProductOnDemandCost'] = self.product_on_demand_cost
-        csv_row['ProductMeterName'] = self.product_meter_name
-        csv_row['ProductMeterUnit'] = self.product_meter_unit
-        csv_row['ProductMeterValue'] = self.product_meter_value
+            row['ProductAmortizedCost'] = self.product_amortized_cost
+            row['ProductOnDemandCost'] = self.product_on_demand_cost
+        row['ProductMeterName'] = self.product_meter_name
+        row['ProductMeterUnit'] = self.product_meter_unit
+        row['ProductMeterValue'] = self.product_meter_value
+        return row
 
+    def getHeaders(self) -> list[str]:
+        headers = [
+            'Date',
+            'ProviderService',
+            'ProviderInstance',
+            'ProviderTagSelector',
+            'ProviderMeterName1',
+            'ProviderMeterUnit1',
+            'ProviderMeterValue1',
+            'ProviderMeterName2',
+            'ProviderMeterUnit2',
+            'ProviderMeterValue2',
+            'ProviderMeterName3',
+            'ProviderMeterUnit3',
+            'ProviderMeterValue3',
+            'ProviderMeterName4',
+            'ProviderMeterUnit4',
+            'ProviderMeterValue4',
+            'ProviderMeterName5',
+            'ProviderMeterUnit5',
+            'ProviderMeterValue5',
+            'ProviderCostAllocationType',
+            'ProviderCostAllocationKey',
+            'ProviderCostAllocationCloudTagSelector',
+            'ConsumerService',
+            'ConsumerInstance',
+            'ConsumerTags',
+            'Product',
+            'ProductMeterName',
+            'ProductMeterUnit',
+            'ProductMeterValue',
+        ]
+
+        # Add dimensions
+        if 'Dimensions' in self.config['General']:
+            for dimension in self.config['General']['Dimensions'].split(","):
+                headers.extend(['Consumer' + dimension.strip()])
+
+        return headers
 
 class CostItemFactory(object):
     """"
@@ -699,8 +753,7 @@ class CloudCostAllocator(object):
         for cost_item in cost_items:
             if date_str != cost_item.date_str:
                 error("Found cost items with different dates: " + date_str + " and " + cost_item.date_str)
-                d = {}
-                cost_item.write_to_csv_row(d)
+                d = cost_item.export()
                 error(str(d))
                 return False
 
@@ -839,83 +892,6 @@ class CloudCostAllocator(object):
                     # Add cloud consumer cost item
                     new_consumer_cost_items.append(new_consumer_cost_item)
 
-    def get_cost_allocation_key_csv_header(self) -> list[str]:
-        csv_header = [
-            'Date',
-            'ProviderService',
-            'ProviderInstance',
-            'ProviderTagSelector',
-            'ProviderMeterName1',
-            'ProviderMeterUnit1',
-            'ProviderMeterValue1',
-            'ProviderMeterName2',
-            'ProviderMeterUnit2',
-            'ProviderMeterValue2',
-            'ProviderMeterName3',
-            'ProviderMeterUnit3',
-            'ProviderMeterValue3',
-            'ProviderMeterName4',
-            'ProviderMeterUnit4',
-            'ProviderMeterValue4',
-            'ProviderMeterName5',
-            'ProviderMeterUnit5',
-            'ProviderMeterValue5',
-            'ProviderCostAllocationType',
-            'ProviderCostAllocationKey',
-            'ProviderCostAllocationCloudTagSelector',
-            'ConsumerService',
-            'ConsumerInstance',
-            'ConsumerTags',
-            'Product',
-            'ProductMeterName',
-            'ProductMeterUnit',
-            'ProductMeterValue',
-        ]
-
-        # Add dimensions
-        if 'Dimensions' in self.config['General']:
-            for dimension in self.config['General']['Dimensions'].split(","):
-                csv_header.extend(['Consumer' + dimension.strip()])
-
-        return csv_header
-
-    def get_cost_item_csv_header(self) -> list[str]:
-        csv_header = [
-            'Date',
-            'Service',
-            'Instance',
-            'Tags',
-            'AmortizedCost',
-            'OnDemandCost',
-            'Currency',
-            'ProviderService',
-            'ProviderInstance',
-            'ProviderTagSelector',
-            'ProviderCostAllocationType',
-            'ProviderCostAllocationKey',
-            'ProviderCostAllocationCloudTagSelector',
-            'Product',
-            'ProductAmortizedCost',
-            'ProductOnDemandCost',
-            'ProductMeterName',
-            'ProductMeterUnit',
-            'ProductMeterValue'
-        ]
-
-        # Add dimensions
-        if 'Dimensions' in self.config['General']:
-            for dimension in self.config['General']['Dimensions'].split(","):
-                csv_header.extend([dimension.strip()])
-
-        # Add provider meters
-        if 'NumberOfProviderMeters' in self.config['General']:
-            for index in range(int(self.config['General']['NumberOfProviderMeters'])):
-                csv_header.extend(['ProviderMeterName%s' % (index + 1)])
-                csv_header.extend(['ProviderMeterUnit%s' % (index + 1)])
-                csv_header.extend(['ProviderMeterValue%s' % (index + 1)])
-
-        return csv_header
-
     def get_service_instance(self, service: str, instance: str) -> ServiceInstance:
         service_instance_id = ServiceInstance.get_id(service, instance)
         if service_instance_id not in self.service_instances:  # Create service instance if not existing yet
@@ -970,23 +946,9 @@ class CloudCostAllocator(object):
                     new_consumer_cost_items[consumer_service_instance_id] = new_consumer_cost_item
                     cost_items.append(new_consumer_cost_item)
 
-    def read_cost_allocation_key(self,
-                                 cost_items: list[ConsumerCostItem],
-                                 cost_allocation_key: str) -> None:
-        if validators.url(cost_allocation_key):
-            response = requests.get(cost_allocation_key)
-            reader = DictReader(response.iter_lines())
-            self.read_cost_allocation_key_stream(cost_items, reader)
-        else:
-            with open(cost_allocation_key, 'r') as cost_allocation_key_text_io:
-                reader = DictReader(cost_allocation_key_text_io)
-                self.read_cost_allocation_key_stream(cost_items, reader)
-
-    def read_cost_allocation_key_stream(self,
-                                 cost_items: list[ConsumerCostItem],
-                                 reader: DictReader) -> None:
+    def read(self, cost_items: list[ConsumerCostItem], cost_items_in) -> None:
         # Read lines
-        for line in reader:
+        for line in cost_items_in:
 
             # Create item
             consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
@@ -1113,21 +1075,48 @@ class CloudCostAllocator(object):
             visited_service_instance_list = []
             service_instance.visit(visited_service_instance_list, ignore_cost_as_key, is_amortized_cost, is_for_products)
 
-    def write_allocated_cost(self, allocated_cost_stream: TextIO) -> None:
-
-        # Open CSV file and write header
-        writer = DictWriter(allocated_cost_stream,
-                            fieldnames=self.get_cost_item_csv_header(),
-                            restval='',
-                            extrasaction='ignore')
-        writer.writeheader()
-
-        # Process cost items
+    def write(self, writer) -> None:
+        # Process cost items ordered by service instance
         for service_instance_id in sorted(self.service_instances.keys()):
             service_instance = self.service_instances[service_instance_id]
             for cost_item in service_instance.cost_items:
-
                 # Write fields
-                row = {}
-                cost_item.write_to_csv_row(row)
+                row = cost_item.export()
                 writer.writerow(row)
+
+    def getHeaders(self) -> list[str]:
+        headers = [
+            'Date',
+            'Service',
+            'Instance',
+            'Tags',
+            'AmortizedCost',
+            'OnDemandCost',
+            'Currency',
+            'ProviderService',
+            'ProviderInstance',
+            'ProviderTagSelector',
+            'ProviderCostAllocationType',
+            'ProviderCostAllocationKey',
+            'ProviderCostAllocationCloudTagSelector',
+            'Product',
+            'ProductAmortizedCost',
+            'ProductOnDemandCost',
+            'ProductMeterName',
+            'ProductMeterUnit',
+            'ProductMeterValue'
+        ]
+
+        # Add dimensions
+        if 'Dimensions' in self.config['General']:
+            for dimension in self.config['General']['Dimensions'].split(","):
+                headers.extend([dimension.strip()])
+
+        # Add provider meters
+        if 'NumberOfProviderMeters' in self.config['General']:
+            for index in range(int(self.config['General']['NumberOfProviderMeters'])):
+                headers.extend(['ProviderMeterName%s' % (index + 1)])
+                headers.extend(['ProviderMeterUnit%s' % (index + 1)])
+                headers.extend(['ProviderMeterValue%s' % (index + 1)])
+
+        return headers
