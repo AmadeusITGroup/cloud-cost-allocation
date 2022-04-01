@@ -5,7 +5,7 @@ from sys import exit
 
 from cloud_cost_allocation.cloud_cost_allocator import CloudCostAllocator, CostItemFactory
 from cloud_cost_allocation.azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
-from cloud_cost_allocation.utils import readCSV, writeCSV_file
+from cloud_cost_allocation.utils import read_csv, write_csv_file
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
         cost_type = cost_list[0]
         if cost_type == 'AzEaAmo':
             cloud_cost_reader = AzureEaAmortizedCostReader(cost_item_factory, config)
-            readCSV(cost_list[1], cloud_cost_reader, cloud_cost_items)
+            read_csv(cost_list[1], cloud_cost_reader, cloud_cost_items)
         else:
             error("Unknown cost type: " + cost_type)
             exit(2)
@@ -57,7 +57,7 @@ def main():
     consumer_cost_items = []
     cloud_cost_allocator = CloudCostAllocator(cost_item_factory, config)
     for key in options.keys:
-        readCSV(key, cloud_cost_allocator, consumer_cost_items)
+        read_csv(key, cloud_cost_allocator, consumer_cost_items)
 
     # Allocate costs
     if not cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items):
@@ -65,7 +65,7 @@ def main():
         exit(3)
 
     # Write allocated costs
-    writeCSV_file(options.output, cloud_cost_allocator)
+    write_csv_file(options.output, cloud_cost_allocator)
 
 
 if __name__ == '__main__':

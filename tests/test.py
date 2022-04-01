@@ -12,7 +12,7 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cloud_cost_allocation.cloud_cost_allocator import CloudCostItem, CostItemFactory, CloudCostAllocator
 from cloud_cost_allocation.azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
-from cloud_cost_allocation.utils import readCSV_file, writeCSV_file
+from cloud_cost_allocation.utils import read_csv_file, write_csv_file
 
 
 class TestCloudCostItem(CloudCostItem):
@@ -56,11 +56,11 @@ class TestCloudCostAllocator(CloudCostAllocator):
     def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
         CloudCostAllocator.__init__(self, cost_item_factory, config)
 
-    def getHeaders(self) -> list[str]:
+    def get_headers(self) -> list[str]:
         # Add custom columns
         # - Cloud: the cloud provider name, filled for a cloud cost item
         # - IsFinalConsumption: value is Y if the cost item is a leave in the cost allocation graph, N otherwise
-        headers = super().getHeaders()
+        headers = super().get_headers()
         headers.extend(['Cloud', 'IsFinalConsumption'])
         return headers
 
@@ -119,7 +119,7 @@ class Test(unittest.TestCase):
         cloud_cost_items = []
         cloud_cost_reader = AzureEaAmortizedCostReader(cost_item_factory, config)
         costs_filename = directory + "/" + test + "/" + test + "_cloud_cost.csv"
-        readCSV_file(costs_filename, cloud_cost_reader, cloud_cost_items)
+        read_csv_file(costs_filename, cloud_cost_reader, cloud_cost_items)
         for cloud_cost_item in cloud_cost_items:
             cloud_cost_item.enhance()
 
@@ -127,7 +127,7 @@ class Test(unittest.TestCase):
         consumer_cost_items = []
         cloud_cost_allocator = TestCloudCostAllocator(cost_item_factory, config)
         allocation_keys_filename = directory + "/" + test + "/" + test + "_cost_allocation_keys.csv"
-        readCSV_file(allocation_keys_filename, cloud_cost_allocator, consumer_cost_items)
+        read_csv_file(allocation_keys_filename, cloud_cost_allocator, consumer_cost_items)
 
         # Allocate costs
         assert_message = test + ": cost allocation failed"
@@ -135,7 +135,7 @@ class Test(unittest.TestCase):
 
         # Write allocated costs
         allocated_costs_filename = directory + "/" + test + "/" + test + "_out.csv"
-        writeCSV_file(allocated_costs_filename, cloud_cost_allocator)
+        write_csv_file(allocated_costs_filename, cloud_cost_allocator)
 
         # Compare allocated results with reference
         reference_filename = directory + "/" + test + "/" + test + "_allocated_cost.csv"

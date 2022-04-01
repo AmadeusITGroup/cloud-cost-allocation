@@ -104,7 +104,7 @@ class CostItem(object):
         row['Currency'] = self.currency
         return row
 
-    def getHeaders(self) -> list[str]:
+    def get_headers(self) -> list[str]:
         headers = [
             'Date',
             'Service',
@@ -375,7 +375,7 @@ class ConsumerCostItem(CostItem):
         row['ProductMeterValue'] = self.product_meter_value
         return row
 
-    def getHeaders(self) -> list[str]:
+    def get_headers(self) -> list[str]:
         headers = [
             'Date',
             'ProviderService',
@@ -1084,7 +1084,7 @@ class CloudCostAllocator(object):
                 row = cost_item.export()
                 writer.writerow(row)
 
-    def getHeaders(self) -> list[str]:
+    def get_headers(self) -> list[str]:
         headers = [
             'Date',
             'Service',
