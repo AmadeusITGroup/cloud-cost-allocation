@@ -1,0 +1,11 @@
+Date,ProviderService,ProviderCostAllocationKey,ConsumerService
+2022-04-15,a,4,b
+2022-04-15,a,5,c
+2022-04-15,b,1,a
+2022-04-15,b,1,c
+2022-04-15,b,3,d
+2022-04-15,c,1,b
+2022-04-15,c,4,d
+
+
+

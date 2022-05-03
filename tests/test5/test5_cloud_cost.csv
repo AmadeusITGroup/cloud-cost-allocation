@@ -1,0 +1,2 @@
+Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,ReservationId,
+04/15/2022,"""service"": ""a""",90,EUR,Usage,ResourceId1,

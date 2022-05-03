@@ -1,0 +1,57 @@
+@startuml
+
+class Product
+
+class Service
+
+class Instance
+Instance "n" -up-* "1" Service
+
+abstract CostItem {
+Date
+[Amortized/OnDemand]Cost
+Currency
+Component
+Environment
+Partition
+Tags
+}
+Instance "1" *-- "n" CostItem
+
+package "Service Cost Allocation Data" as CostAllocationCSV {
+
+class CostAllocationItem {
+ProviderMeter[Names/Units/Values]
+ProviderTagSelector
+ProviderCostAllocationType: Key/CloudTagSelector/Cost
+ProviderCostAllocationKey
+ProviderCostAllocationCloudTagSelector
+}
+
+class ProductCostItem {
+ProductMeter[Name/Unit/Value]
+}
+
+class ConsumerCostItem {
+ConsumerService
+ConsumerInstance
+ConsumerComponent
+ConsumerEnvironment
+ConsumerPartition
+ConsumerTags
+}
+}
+Instance "1"--> "n" CostAllocationItem
+
+ConsumerCostItem =up=|> CostItem
+CostAllocationItem "1" *-down- "0,1" ConsumerCostItem
+
+ProductCostItem "0,1" -down-* "1" CostAllocationItem
+ProductCostItem "n"-up-* "1" Product
+
+class CloudCostItem {
+Line (from cloud provider cost data)
+}
+CloudCostItem =up=|> CostItem
+
+@enduml

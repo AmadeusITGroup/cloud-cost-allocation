@@ -1,0 +1,18 @@
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductMeterName,ProductMeterUnit,ProductMeterValue,Component,Environment,ProviderMeterName1,ProviderMeterUnit1,ProviderMeterValue1,ProviderMeterName2,ProviderMeterUnit2,ProviderMeterValue2,Cloud,IsFinalConsumption
+2022-03-09,container,container,"service:container,component:compute,environment:prd1,partition:0,cloud_resource_id:/az/virtualmachines/vm1,",80.0,80.0,EUR,,,,,,,,,,,,,compute,prd1,,,,,,,az,N
+2022-03-09,container,container,"service2:container,component:storage,environment:prd2,partition:1,cloud_resource_id:/az/disks/disk1,",20.0,20.0,EUR,,,,,,,,,,,,,storage,prd2,,,,,,,az,N
+2022-03-09,history,history,,5.0,5.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.25,,,,,,,,,,cpu,core,0.25,memory,gb,0.5,,N
+2022-03-09,history,history,,18.0,18.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/disks/.*',cloud_resource_id)",Key,9.0,,,,,,,,,,disk,gb,9,,,,,N
+2022-03-09,history,history,,1.0,1.0,EUR,monitoring,monitoring,,Key,10.0,,,,,,,,,,time-series,ts,10,,,,,N
+2022-03-09,monitoring,monitoring,,5.0,5.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.25,,,,,,,,grafana,,cpu,core,0.25,memory,gb,0.5,,N
+2022-03-09,monitoring,monitoring,,2.0,2.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/disks/.*',cloud_resource_id)",Key,1.0,,,,,,,,prometheus,,disk,gb,1,,,,,N
+2022-03-09,reporting,reporting,"cost_center:5678,",10.0,10.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.5,,,,,,,,batch,prd,cpu,core,0.5,memory,gb,1,,N
+2022-03-09,reporting,reporting,,1.0,1.0,EUR,monitoring,monitoring,,Key,10.0,,,,,,,,,,time-series,ts,10,,,,,N
+2022-03-09,reporting,reporting,,12.0,12.0,EUR,history,history,,Key,1.0,,,,,,,,,,records,rec,500,,,,,N
+2022-03-09,reporting,reporting,,20.7,20.7,EUR,reporting,reporting,,Key,9.0,,b2b,20.7,20.7,Monthly Active Users,usr,100,,,reports,rep,9,,,,,Y
+2022-03-09,reporting,reporting,,2.3,2.3,EUR,reporting,reporting,,Key,1.0,,b2c,2.3,2.3,Monthly Active Users,usr,900,,,reports,rep,1,,,,,Y
+2022-03-09,web,web,"cost_center:1234,",60.0,60.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,3.0,,,,,,,,apache,prd,cpu,core,3,memory,gb,6,,N
+2022-03-09,web,web,,5.0,5.0,EUR,monitoring,monitoring,,Key,50.0,,,,,,,,,,time-series,ts,50,,,,,N
+2022-03-09,web,web,,12.0,12.0,EUR,history,history,,Key,1.0,,,,,,,,,,records,rec,500,,,,,N
+2022-03-09,web,web,,7.7,7.7,EUR,web,web,,Key,100.0,,b2b,7.7,7.7,Monthly Active Users,,,,,HTTP requests,req,100,,,,,Y
+2022-03-09,web,web,,69.3,69.3,EUR,web,web,,Key,900.0,,b2c,69.3,69.3,Monthly Active Users,,,,,HTTP requests,req,900,,,,,Y

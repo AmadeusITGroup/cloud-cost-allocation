@@ -1,0 +1,15 @@
+Date,ProviderService,ProviderMeterName1,ProviderMeterValue1,ProviderMeterUnit1,ProviderTagSelector,ProviderCostAllocationKey,ConsumerService,Product,ProductMeterName,ProductMeterUnit,ProductMeterValue
+2022-03-10,Application1,A,2,trx,,2,,Product1,X,trx,2
+2022-03-10,Application2,B,2,trx,,2,Application1,Product1,X,,
+2022-03-10,Application3,D,2,trx,'trx' in globals() and trx == 'x',2,Application2,Product1,X,,
+2022-03-10,Application3,,,,,2,Application2,Product1,X,,
+2022-03-10,Application4,E,2,trx,,2,Application2,,,,
+2022-03-10,Application1,A,3,trx,,3,,Product1,Y,trx,3
+2022-03-10,Application2,C,3,trx,,12,Application1,Product1,Y,,
+2022-03-10,Application3,D,6,trx,'trx' in globals() and trx == 'y',6,Application2,Product1,Y,,
+2022-03-10,Application3,,,,,6,Application2,Product1,Y,,
+2022-03-10,Application4,E,3,trx,,3,Application2,,,,
+2022-03-10,Application2,B,6,trx,,6,,Product2,Z,trx,6
+2022-03-10,Application3,D,6,trx,'trx' in globals() and trx == 'z',6,Application2,Product2,Z,,
+2022-03-10,Application3,,,,,6,Application2,Product2,Z,,
+2022-03-10,Application4,E,6,trx,,6,Application2,,,,

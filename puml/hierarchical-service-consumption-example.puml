@@ -1,0 +1,40 @@
+@startuml
+
+node B2cProduct as "B2c Product"
+node B2bProduct as "B2b Product"
+
+component WebService as "Web Service"
+component ReportingService as "Reporting Service"
+component HistoryService as "History Service"
+component MonitoringService as "Monitoring Service"
+component ContainerService as "Container Service"
+
+cloud CloudResource as "Cloud Resource"
+
+B2cProduct -down-> WebService: uses
+B2cProduct -down-> ReportingService: uses
+
+B2bProduct -down-> WebService: uses
+B2bProduct -down-> ReportingService: uses
+
+WebService -down-> HistoryService: calls
+WebService -down-> ContainerService: runs on
+WebService -down-> MonitoringService: uses
+
+ReportingService -down-> HistoryService: calls
+ReportingService -down-> ContainerService: runs on
+ReportingService -down-> MonitoringService: uses
+
+HistoryService -down-> ContainerService: runs on
+HistoryService -down-> MonitoringService: uses
+
+MonitoringService -down-> ContainerService: runs on
+MonitoringService -down-> CloudResource: uses
+
+ContainerService -down-> CloudResource: uses
+
+legend
+-> consumes
+end legend
+
+@enduml

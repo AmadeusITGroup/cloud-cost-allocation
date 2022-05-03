@@ -1,0 +1,42 @@
+@startuml
+
+skinparam defaultTextAlignment center
+
+node B2cProduct as "B2c Product\n//Monthly Active Users//"
+node B2bProduct as "B2b Product\n//Monthly Active Users//"
+
+component WebService as "Web Service\n//HTTP requests//"
+component ReportingService as "Reporting Service\n//Reports//"
+component HistoryService as "History Service\n//Records//"
+component MonitoringService as "Monitoring Service\n//Time-series//"
+component ContainerService as "Container Service\n//Container requests//"
+
+cloud CloudResource as "Cloud Resource"
+
+B2cProduct <-down- WebService
+B2cProduct <-down- ReportingService
+
+B2bProduct <-down- WebService
+B2bProduct <-down- ReportingService
+
+WebService <-down- HistoryService
+WebService <-down- ContainerService
+WebService <-down- MonitoringService
+
+ReportingService <-down- HistoryService
+ReportingService <-down- ContainerService
+ReportingService <-down- MonitoringService
+
+HistoryService <-down- ContainerService
+HistoryService <-down- MonitoringService
+
+MonitoringService <-down- ContainerService
+MonitoringService <-down- CloudResource
+
+ContainerService <-down- CloudResource
+
+legend
+-> allocates its costs to
+end legend
+
+@enduml
