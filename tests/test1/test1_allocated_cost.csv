@@ -6,7 +6,7 @@ Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,P
 2022-03-09,history,history,,1.0,1.0,EUR,monitoring,monitoring,,Key,10.0,,,,,,,,,,time-series,ts,10,,,,,N
 2022-03-09,monitoring,monitoring,,5.0,5.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.25,,,,,,,,grafana,,cpu,core,0.25,memory,gb,0.5,,N
 2022-03-09,monitoring,monitoring,,2.0,2.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/disks/.*',cloud_resource_id)",Key,1.0,,,,,,,,prometheus,,disk,gb,1,,,,,N
-2022-03-09,reporting,reporting,"cost_center:5678,",10.0,10.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.5,,,,,,,,batch,prd,cpu,core,0.5,memory,gb,1,,N
+2022-03-09,reporting,reporting,"service:reporting,component:batch,environment:prd,cost_center:5678,",10.0,10.0,EUR,container,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",Key,0.5,,,,,,,,batch,prd,cpu,core,0.5,memory,gb,1,,N
 2022-03-09,reporting,reporting,,1.0,1.0,EUR,monitoring,monitoring,,Key,10.0,,,,,,,,,,time-series,ts,10,,,,,N
 2022-03-09,reporting,reporting,,12.0,12.0,EUR,history,history,,Key,1.0,,,,,,,,,,records,rec,500,,,,,N
 2022-03-09,reporting,reporting,,20.7,20.7,EUR,reporting,reporting,,Key,9.0,,b2b,20.7,20.7,Monthly Active Users,usr,100,,,reports,rep,9,,,,,Y
