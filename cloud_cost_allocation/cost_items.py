@@ -144,37 +144,6 @@ class CloudCostItem(CostItem):
                   "'")
         return match
 
-    def fill_from_tags(self, config: ConfigParser) -> None:
-
-        # Service
-        for service_tag_key in config['TagKey']['Service'].split(","):
-            service_tag_key = service_tag_key.strip()
-            if service_tag_key in self.tags:
-                self.service = self.tags[service_tag_key].strip().lower()
-                break
-        if not self.service:
-            self.service = config['General']['DefaultService'].strip()
-
-        # Instance
-        if 'Instance' in config['TagKey']:
-            for instance_tag_key in config['TagKey']['Instance'].split(","):
-                instance_tag_key = instance_tag_key.strip()
-                if instance_tag_key in self.tags:
-                    self.instance = self.tags[instance_tag_key].strip().lower()
-                    break
-        if not self.instance:  # Default value: same as service
-            self.instance = self.service
-
-        # Dimensions
-        if 'Dimensions' in config['General']:
-            for dimension in config['General']['Dimensions'].split(","):
-                dimension = dimension.strip()
-                for dimension_tag_key in config['TagKey'][dimension].split(","):
-                    dimension_tag_key = dimension_tag_key.strip()
-                    if dimension_tag_key in self.tags:
-                        self.dimensions[dimension] = self.tags[dimension_tag_key].strip().lower()
-                        break
-
     def visit_for_allocation(self,
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,

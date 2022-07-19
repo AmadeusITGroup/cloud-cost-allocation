@@ -1,6 +1,6 @@
 Date,ProviderService,ProviderTagSelector,ProviderMeterName1,ProviderMeterValue1,ProviderMeterUnit1,ProviderMeterName2,ProviderMeterValue2,ProviderMeterUnit2,ProviderCostAllocationKey,ConsumerService,ConsumerComponent,ConsumerEnvironment,ConsumerTags,Product,ProductMeterName,ProductMeterValue,ProductMeterUnit
 2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",cpu,3,core,memory,6,gb,3,web,apache,prd,cost_center:1234,,,,
-2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",cpu,0.5,core,memory,1,gb,0.5,reporting,batch,prd,cost_center:5678,,,,
+2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",cpu,0.5,core,memory,1,gb,0.5,,,,"service:reporting,component:batch,environment:prd,cost_center:5678",,,,
 2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",cpu,0.25,core,memory,0.5,gb,0.25,history,,,,,,,
 2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/virtualmachines/.*',cloud_resource_id)",cpu,0.25,core,memory,0.5,gb,0.25,monitoring,grafana,,,,,,
 2022-03-09,container,"'cloud_resource_id' in globals() and __import__('re').match('/az/disks/.*',cloud_resource_id)",disk,9,gb,,,,9,history,,,,,,,
