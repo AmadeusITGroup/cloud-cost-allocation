@@ -43,33 +43,6 @@ class CostItem(ABC):
         self.currency = ""
         self.nb_matching_provider_tag_selectors = 0
 
-    def fill_from_tags(self, config: ConfigParser) -> None:
-
-        # Service
-        for service_tag_key in config['TagKey']['Service'].split(","):
-            service_tag_key = service_tag_key.strip()
-            if service_tag_key in self.tags:
-                self.service = self.tags[service_tag_key].strip().lower()
-                break
-
-        # Instance
-        if 'Instance' in config['TagKey']:
-            for instance_tag_key in config['TagKey']['Instance'].split(","):
-                instance_tag_key = instance_tag_key.strip()
-                if instance_tag_key in self.tags:
-                    self.instance = self.tags[instance_tag_key].strip().lower()
-                    break
-
-        # Dimensions
-        if 'Dimensions' in config['General']:
-            for dimension in config['General']['Dimensions'].split(","):
-                dimension = dimension.strip()
-                for dimension_tag_key in config['TagKey'][dimension].split(","):
-                    dimension_tag_key = dimension_tag_key.strip()
-                    if dimension_tag_key in self.tags:
-                        self.dimensions[dimension] = self.tags[dimension_tag_key].strip().lower()
-                        break
-
     def get_consumer_cost_item_provider_service_instance(self) -> 'ServiceInstance':
         # Default behavior, overridden in child classes
         return None
@@ -150,19 +123,6 @@ class CloudCostItem(CostItem):
         self.cloud_amortized_cost = 0.0
         self.cloud_on_demand_cost = 0.0
         self.currency = ""
-
-    def fill_from_tags(self, config: ConfigParser) -> None:
-
-        # Call parent method
-        super().fill_from_tags(config)
-
-        # Default service
-        if not self.service:
-            self.service = config['General']['DefaultService'].strip()
-
-        # Default instance
-        if not self.instance:
-            self.instance = self.service
 
     def matches_cloud_tag_selector(self, cloud_tag_selector: str, provider_service: str) -> bool:
         eval_globals_dict = {}

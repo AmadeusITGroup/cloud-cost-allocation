@@ -28,6 +28,32 @@ class GenericReader(ABC):
                 # Add cloud cost item
                 cost_items.append(cost_item)
 
+    def fill_from_tags(self, cost_item) -> None:
+        # Service
+        for service_tag_key in self.config['TagKey']['Service'].split(","):
+            service_tag_key = service_tag_key.strip()
+            if service_tag_key in cost_item.tags:
+                cost_item.service = cost_item.tags[service_tag_key].strip().lower()
+                break
+
+        # Instance
+        if 'Instance' in self.config['TagKey']:
+            for instance_tag_key in self.config['TagKey']['Instance'].split(","):
+                instance_tag_key = instance_tag_key.strip()
+                if instance_tag_key in cost_item.tags:
+                    cost_item.instance = cost_item.tags[instance_tag_key].strip().lower()
+                    break
+
+        # Dimensions
+        if 'Dimensions' in self.config['General']:
+            for dimension in self.config['General']['Dimensions'].split(","):
+                dimension = dimension.strip()
+                for dimension_tag_key in self.config['TagKey'][dimension].split(","):
+                    dimension_tag_key = dimension_tag_key.strip()
+                    if dimension_tag_key in cost_item.tags:
+                        cost_item.dimensions[dimension] = cost_item.tags[dimension_tag_key].strip().lower()
+                        break
+
     @abstractmethod
     def read_item(self, item) -> CostItem:
         pass

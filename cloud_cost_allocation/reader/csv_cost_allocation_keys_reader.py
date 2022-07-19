@@ -122,9 +122,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
         # Note: if both consumer tags and other consumer columns (ConsumerService, ConsumerInstance,
         # Consumer<Dimensions>) are populated with overlapping info, then info from other consumer columns takes
         # precedence over info from consumer tags (other consumer columns will be processed after consumer tags)
-        consumer_cost_item.fill_from_tags(self.config)
+        self.fill_from_tags(consumer_cost_item)
 
-        # Populate consumer cost item info from other consumer columns
+        # Populate/overwrite consumer cost item info from explicit consumer columns if set
         if 'ConsumerService' in line and line['ConsumerService']:
             consumer_cost_item.service = line['ConsumerService'].lower()
         if 'ConsumerInstance' in line and line['ConsumerInstance']:

@@ -73,7 +73,12 @@ class AzureEaAmortizedCostReader(GenericReader):
 
         else:
             # Fill cost item from tags
-            cloud_cost_item.fill_from_tags(self.config)
+            self.fill_from_tags(cloud_cost_item)
+            # Set default values for service + instance if needed
+            if not cloud_cost_item.service:
+                cloud_cost_item.service = self.config['General']['DefaultService'].strip()
+            if not cloud_cost_item.instance:
+                # Set the default value
+                cloud_cost_item.instance = cloud_cost_item.service
 
         return cloud_cost_item
-
