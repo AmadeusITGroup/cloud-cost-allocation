@@ -19,6 +19,7 @@ class CSV_CostAllocationKeysReader(GenericReader):
 
     __slots__ = (
         'nb_provider_meters',  # type: int
+        'nb_product_meters',   # type: int
     )
 
     def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
@@ -30,6 +31,10 @@ class CSV_CostAllocationKeysReader(GenericReader):
             self.nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
         else:
             self.nb_provider_meters = 0
+        if 'NumberOfProductMeters' in self.config['General']:
+            self.nb_product_meters = int(self.config['General']['NumberOfProductMeters'])
+        else:
+            self.nb_product_meters = 0
 
     def read_item(self, line) -> ConsumerCostItem:
         # Create item
@@ -97,11 +102,11 @@ class CSV_CostAllocationKeysReader(GenericReader):
                                   "is not a float")
                             provider_meter_value = None
                 if provider_meter_name or provider_meter_unit or provider_meter_value:
-                    meter = {}
-                    meter['Name'] = provider_meter_name
-                    meter['Unit'] = provider_meter_unit
-                    meter['Value'] = provider_meter_value
-                    consumer_cost_item.provider_meters.append(meter)
+                    provider_meter = {}
+                    provider_meter['Name'] = provider_meter_name
+                    provider_meter['Unit'] = provider_meter_unit
+                    provider_meter['Value'] = provider_meter_value
+                    consumer_cost_item.provider_meters.append(provider_meter)
 
         # Populate tags from consumer tags
         if 'ConsumerTags' in line:
@@ -135,15 +140,46 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 if consumer_dimension in line and line[consumer_dimension]:
                     consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
 
-        # Populate product info
+        # Populate product
         if 'Product' in line:
             consumer_cost_item.product = line['Product'].lower()
-        if 'ProductMeterName' in line:
-            consumer_cost_item.product_meter_name = line['ProductMeterName']
-        if 'ProductMeterUnit' in line:
-            consumer_cost_item.product_meter_unit = line['ProductMeterUnit']
-        if 'ProductMeterValue' in line:
-            consumer_cost_item.product_meter_value = line['ProductMeterValue']
+
+        # Populate product meters
+        if self.nb_product_meters:
+            for i in range(1, self.nb_product_meters + 1):
+                product_meter_name_column = "ProductMeterName"
+                if i > 1:
+                    product_meter_name_column += str(i)
+                if product_meter_name_column in line:
+                    product_meter_name = line[product_meter_name_column]
+                else:
+                    product_meter_name = None
+                product_meter_unit_column = "ProductMeterUnit"
+                if i > 1:
+                    product_meter_unit_column += str(i)
+                if product_meter_unit_column in line:
+                    product_meter_unit = line[product_meter_unit_column]
+                else:
+                    product_meter_unit = None
+                product_meter_value = None
+                product_meter_value_column = "ProductMeterValue"
+                if i > 1:
+                    product_meter_value_column += str(i)
+                if product_meter_value_column in line:
+                    product_meter_value = line[product_meter_value_column]
+                    if product_meter_value:
+                        try:
+                            float(product_meter_value)
+                        except (TypeError, ValueError):
+                            error("Value '" + product_meter_value + "' of '" + product_meter_value_column +
+                                  "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
+                                  "is not a float")
+                if product_meter_name or product_meter_unit or product_meter_value:
+                    product_meter = {}
+                    product_meter['Name'] = product_meter_name
+                    product_meter['Unit'] = product_meter_unit
+                    product_meter['Value'] = product_meter_value
+                    consumer_cost_item.product_meters.append(product_meter)
 
         # Set default values for service and instance
         if not consumer_cost_item.service:

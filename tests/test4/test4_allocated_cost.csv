@@ -1,19 +1,19 @@
-Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductMeterName,ProductMeterUnit,ProductMeterValue,Cloud,IsFinalConsumption
-2022-03-17,application1,application1,"product:product1,",21.0,21.0,EUR,shared1,shared1,'t' in globals() and k == 'x',Key,2.0,,,,,,,,,N
-2022-03-17,application1,application1,,21.0,21.0,EUR,application1,application1,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,21.0,21.0,,,,,Y
-2022-03-17,application2,application2,"product:product1,",84.0,84.0,EUR,shared1,shared1,'t' in globals() and k == 'x',Key,8.0,,,,,,,,,N
-2022-03-17,application2,application2,,84.0,84.0,EUR,application2,application2,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,84.0,84.0,,,,,Y
-2022-03-17,application3,application3,"product:product1,",105.0,105.0,EUR,shared1,shared1,'t' in globals() and (k == 'x' or k == 'y'),Key,1.0,,,,,,,,,N
-2022-03-17,application3,application3,,105.0,105.0,EUR,application3,application3,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,105.0,105.0,,,,,Y
-2022-03-17,application4,application4,"consumer_service:application7,product:product2,",21.0,21.0,EUR,shared2,shared2,'t' in globals() and k == 't',Key,2.0,,,,,,,,,N
-2022-03-17,application5,application5,"consumer_service:application8,product:product2,",84.0,84.0,EUR,shared2,shared2,'t' in globals() and k == 't',Key,8.0,,,,,,,,,N
-2022-03-17,application6,application6,"consumer_service:application9,product:product2,",105.0,105.0,EUR,shared2,shared2,'t' in globals() and (k == 't' or k == 'u'),Key,1.0,,,,,,,,,N
-2022-03-17,application7,application7,,21.0,21.0,EUR,application4,application4,'consumer_service' in globals() and consumer_service=='application7' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,21.0,21.0,,,,,Y
-2022-03-17,application8,application8,,84.0,84.0,EUR,application5,application5,'consumer_service' in globals() and consumer_service=='application8' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,84.0,84.0,,,,,Y
-2022-03-17,application9,application9,,105.0,105.0,EUR,application6,application6,'consumer_service' in globals() and consumer_service=='application9' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,105.0,105.0,,,,,Y
-2022-03-17,shared1,shared1,"service:shared1,k:x,cloud_resource_id:resourceid1,",100.0,100.0,EUR,,,,,,,,,,,,,az,N
-2022-03-17,shared1,shared1,"service:shared1,k:y,cloud_resource_id:resourceid2,",100.0,100.0,EUR,,,,,,,,,,,,,az,N
-2022-03-17,shared1,shared1,"service:shared1,k:z,cloud_resource_id:resourceid3,",10.0,10.0,EUR,,,,,,,,,,,,,az,N
-2022-03-17,shared2,shared2,"service:shared2,k:x,cloud_resource_id:resourceid4,",100.0,100.0,EUR,,,,,,,,,,,,,az,N
-2022-03-17,shared2,shared2,"service:shared2,k:y,cloud_resource_id:resourceid5,",100.0,100.0,EUR,,,,,,,,,,,,,az,N
-2022-03-17,shared2,shared2,"service:shared2,k:z,cloud_resource_id:resourceid6,",10.0,10.0,EUR,,,,,,,,,,,,,az,N
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption
+2022-03-17,application1,application1,"product:product1,",21.0,21.0,EUR,shared1,shared1,'t' in globals() and k == 'x',Key,2.0,,,,,,N
+2022-03-17,application1,application1,,21.0,21.0,EUR,application1,application1,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,21.0,21.0,,Y
+2022-03-17,application2,application2,"product:product1,",84.0,84.0,EUR,shared1,shared1,'t' in globals() and k == 'x',Key,8.0,,,,,,N
+2022-03-17,application2,application2,,84.0,84.0,EUR,application2,application2,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,84.0,84.0,,Y
+2022-03-17,application3,application3,"product:product1,",105.0,105.0,EUR,shared1,shared1,'t' in globals() and (k == 'x' or k == 'y'),Key,1.0,,,,,,N
+2022-03-17,application3,application3,,105.0,105.0,EUR,application3,application3,'product' in globals() and product=='product1',ConsumerTag,1.0,,product1,105.0,105.0,,Y
+2022-03-17,application4,application4,"consumer_service:application7,product:product2,",21.0,21.0,EUR,shared2,shared2,'t' in globals() and k == 't',Key,2.0,,,,,,N
+2022-03-17,application5,application5,"consumer_service:application8,product:product2,",84.0,84.0,EUR,shared2,shared2,'t' in globals() and k == 't',Key,8.0,,,,,,N
+2022-03-17,application6,application6,"consumer_service:application9,product:product2,",105.0,105.0,EUR,shared2,shared2,'t' in globals() and (k == 't' or k == 'u'),Key,1.0,,,,,,N
+2022-03-17,application7,application7,,21.0,21.0,EUR,application4,application4,'consumer_service' in globals() and consumer_service=='application7' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,21.0,21.0,,Y
+2022-03-17,application8,application8,,84.0,84.0,EUR,application5,application5,'consumer_service' in globals() and consumer_service=='application8' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,84.0,84.0,,Y
+2022-03-17,application9,application9,,105.0,105.0,EUR,application6,application6,'consumer_service' in globals() and consumer_service=='application9' and 'product' in globals() and product=='product2',ConsumerTag,1.0,,product2,105.0,105.0,,Y
+2022-03-17,shared1,shared1,"service:shared1,k:x,cloud_resource_id:resourceid1,",100.0,100.0,EUR,,,,,,,,,,az,N
+2022-03-17,shared1,shared1,"service:shared1,k:y,cloud_resource_id:resourceid2,",100.0,100.0,EUR,,,,,,,,,,az,N
+2022-03-17,shared1,shared1,"service:shared1,k:z,cloud_resource_id:resourceid3,",10.0,10.0,EUR,,,,,,,,,,az,N
+2022-03-17,shared2,shared2,"service:shared2,k:x,cloud_resource_id:resourceid4,",100.0,100.0,EUR,,,,,,,,,,az,N
+2022-03-17,shared2,shared2,"service:shared2,k:y,cloud_resource_id:resourceid5,",100.0,100.0,EUR,,,,,,,,,,az,N
+2022-03-17,shared2,shared2,"service:shared2,k:z,cloud_resource_id:resourceid6,",10.0,10.0,EUR,,,,,,,,,,az,N

@@ -102,6 +102,9 @@ class Test(unittest.TestCase):
     def test_test5(self):
         self.run_test('test5')
 
+    def test_test6(self):
+        self.run_test('test6')
+
     # Auxiliary method
     def run_test(self, test):
 
