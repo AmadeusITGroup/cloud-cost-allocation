@@ -35,11 +35,20 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'ProviderCostAllocationCloudTagSelector',
             'Product',
             'ProductAmortizedCost',
-            'ProductOnDemandCost',
-            'ProductMeterName',
-            'ProductMeterUnit',
-            'ProductMeterValue'
+            'ProductOnDemandCost'
         ]
+
+        # Add product meters
+        if 'NumberOfProductMeters' in self.config['General']:
+            for i in range(1, int(self.config['General']['NumberOfProductMeters']) + 1):
+                if i == 1:
+                    headers.extend(['ProductMeterName'])
+                    headers.extend(['ProductMeterUnit'])
+                    headers.extend(['ProductMeterValue'])
+                else:
+                    headers.extend(['ProductMeterName%s' % i])
+                    headers.extend(['ProductMeterUnit%s' % i])
+                    headers.extend(['ProductMeterValue%s' % i])
 
         # Add dimensions
         if 'Dimensions' in self.config['General']:
@@ -86,7 +95,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['ProviderCostAllocationCloudTagSelector'] = cost_item.provider_cost_allocation_cloud_tag_selector
 
         # Add the provider metrics
-        #for i in range(1, len(cost_item.provider_meter_names) + 1):
         for i in range(1, len(cost_item.provider_meters) + 1):
             meter = cost_item.provider_meters[i-1]
             if meter:
@@ -99,8 +107,16 @@ class CSV_AllocatedCostWriter(GenericWriter):
         if cost_item.product:
             data['ProductAmortizedCost'] = cost_item.product_amortized_cost
             data['ProductOnDemandCost'] = cost_item.product_on_demand_cost
-        data['ProductMeterName'] = cost_item.product_meter_name
-        data['ProductMeterUnit'] = cost_item.product_meter_unit
-        data['ProductMeterValue'] = cost_item.product_meter_value
+        for i in range(1, len(cost_item.product_meters) + 1):
+            meter = cost_item.product_meters[i-1]
+            if meter:
+                if i == 1:
+                    data['ProductMeterName'] = meter['Name']
+                    data['ProductMeterUnit'] = meter['Unit']
+                    data['ProductMeterValue'] = meter['Value']
+                else:
+                    data['ProductMeterName%s' % i] = meter['Name']
+                    data['ProductMeterUnit%s' % i] = meter['Unit']
+                    data['ProductMeterValue%s' % i] = meter['Value']
 
         return data

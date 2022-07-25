@@ -40,7 +40,6 @@ class GenericWriter(ABC):
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
         pass
 
-    @abstractmethod
     def export_item_cloud(self, cost_item, service_instance) -> dict[str]:
         return self.export_item_base(cost_item, service_instance)
 

@@ -1,0 +1,17 @@
+Date,ProviderService,ProviderCostAllocationKey,ConsumerService,Product,ProductMeterName,ProductMeterUnit,ProductMeterValue,ProductMeterName2,ProductMeterUnit2,ProductMeterValue2
+2022-07-22,a,2,b,p1,,,,,,
+2022-07-22,a,2,b,p2,,,,,,
+2022-07-22,b,1,,p1,x,trx,1,,,
+2022-07-22,b,1,,p1,y,trx,1,,,
+2022-07-22,b,1,,p2,z,trx,1,,,
+2022-07-22,a,1,c,p3,x0,trx,1,y0,trx,1
+2022-07-22,a,1,c,p3,x0,trx,1,y1,trx,1
+2022-07-22,a,1,c,p3,x1,trx,1,,,
+2022-07-22,a,1,c,p4,,,,,,
+2022-07-22,c,1,,p3,x0,trx,1,y0,trx,1
+2022-07-22,c,1,,p3,x0,trx,1,y1,trx,1
+2022-07-22,c,1,,p3,x1,trx,1,y0,trx,1
+2022-07-22,c,1,,p3,x1,trx,1,y1,trx,1
+2022-07-22,c,1,,p4,x,trx,1,y,trx,1
+
+
