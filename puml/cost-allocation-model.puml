@@ -11,10 +11,8 @@ abstract CostItem {
 Date
 [Amortized/OnDemand]Cost
 Currency
-Component
-Environment
-Partition
 Tags
+Dimensions
 }
 Instance "1" *-- "n" CostItem
 
@@ -36,9 +34,7 @@ ProductMeter[Names/Units/Values]
 class ConsumerCostItem {
 ConsumerService
 ConsumerInstance
-ConsumerComponent
-ConsumerEnvironment
-ConsumerPartition
+ConsumerDimensions
 ConsumerTags
 }
 }
