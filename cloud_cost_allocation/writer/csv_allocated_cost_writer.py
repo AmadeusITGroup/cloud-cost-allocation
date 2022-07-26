@@ -50,6 +50,12 @@ class CSV_AllocatedCostWriter(GenericWriter):
                 headers.extend(['ProviderMeterUnit%s' % i])
                 headers.extend(['ProviderMeterValue%s' % i])
 
+        # Add product dimensions
+        if 'NumberOfProductDimensions' in self.config['General']:
+            for i in range(1, int(self.config['General']['NumberOfProductDimensions']) + 1):
+                headers.extend(['ProductDimensionName%s' % i])
+                headers.extend(['ProductDimensionElement%s' % i])
+
         # Add product meters
         if 'NumberOfProductMeters' in self.config['General']:
             for i in range(1, int(self.config['General']['NumberOfProductMeters']) + 1):
@@ -107,6 +113,11 @@ class CSV_AllocatedCostWriter(GenericWriter):
         if cost_item.product:
             data['ProductAmortizedCost'] = cost_item.product_amortized_cost
             data['ProductOnDemandCost'] = cost_item.product_on_demand_cost
+        for i in range(1, len(cost_item.product_dimensions) + 1):
+            dimension = cost_item.product_dimensions[i-1]
+            if dimension:
+                data['ProductDimensionName%s' % i] = dimension['Name']
+                data['ProductDimensionElement%s' % i] = dimension['Element']
         for i in range(1, len(cost_item.product_meters) + 1):
             meter = cost_item.product_meters[i-1]
             if meter:

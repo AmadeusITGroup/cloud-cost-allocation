@@ -29,7 +29,8 @@ ProviderCostAllocationCloudTagSelector
 }
 
 class ProductCostItem {
-ProductMeter[Name/Unit/Value]
+ProductDimension[Names/Elements]
+ProductMeter[Names/Units/Values]
 }
 
 class ConsumerCostItem {

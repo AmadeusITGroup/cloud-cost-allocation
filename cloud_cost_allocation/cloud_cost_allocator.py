@@ -173,7 +173,7 @@ class CloudCostAllocator(object):
                                              cost_items: list[CostItem]) -> None:
 
         # Check if consumer tag is used and process cost items
-        if 'ConsumerService' in self.config['TagKey']:
+        if 'ConsumerService' in self.config['TagKey'] or 'Product' in self.config['TagKey']:
             for cost_item in cost_items:
 
                 # Check consumer service
@@ -200,6 +200,7 @@ class CloudCostAllocator(object):
                             break
 
                 # Check product
+                # TODO: product dimension
                 product = ""
                 actual_product_tag_key = ""
                 if 'Product' in self.config['TagKey']:

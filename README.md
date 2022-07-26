@@ -35,13 +35,14 @@ Furthermore, this also allows service owners to easily identify their main cost 
 |---|---|
 |*Service*|A technical workload, operated by DevOps, which can run on the cloud and/or consume other services. The model makes no distinction between low-level services like a container platform and application services like a Web service: both are technical workloads operated by DevOps teams.|
 |*Product*|A commercial product, which uses one or multiple services. Products are somehow commercial packaging of services under the control of Product Managers.|
+|*Product Dimension*|A optional dimension for the cost report of a product, for example: a product feature, a product flavor, a market or a market segment|
 |*Provider Service*|A service that is consumed by another other service or product, a.k.a. a shared service.|
 |*Consumer Service*|A service that consumes another service.|
 |*Instance*|The running instance of a service. If we think of *Services* as *Classes* in object-oriented programming, then *Instances* would be the *Objects*.|
 |*Dimension*|A dimension in the cost allocation, for example environment like test or prod.|
 |*Partition*|The running partition of a service, used to load balance the traffic or to shard data.|
 |*Component*|A component within the architecture of a service.|
-|*Meter*|A meter to measure the functional throughput of a service, a.k.a. *FinOps North Star Metric*.|
+|*Meter*|A meter to measure the functional throughput of a service or of a product, a.k.a. *FinOps North Star Metric*.|
 |*Amortized Cost*|The billing cost incremented with the amortized cost of the reservation purchase.|
 |*On-demand Cost*|The equivalent on-demand cost, i.e. as if no reservation purchase has been made.|
 |*Cost Item*|A cost that is either a cloud resource cost or a cost allocated by a provider service.|
@@ -186,6 +187,12 @@ Dimensions = Component,Environment
 # The number of provider meter columns in input cost allocation data and output allocated cost data
 NumberOfProviderMeters = 2
 
+# The number of product dimensions in input cost allocation data and output allocated cost data
+NumberOfProductDimensions = 2
+
+# The number of product meter columns in input cost allocation data and output allocated cost data
+NumberOfProductMeters = 3
+
 [TagKey]
 
 # The tag keys for service and instance
@@ -264,4 +271,5 @@ When contributing code, please follow [this project-agnostic contribution guide]
 
 - Cost readers for GCP and AWS.
 - Split and dispatch of the provider meter values when CloudTagSelector is used.
+- Support product dimension in cloud tags   
 - Make the type of cost configurable (?)
