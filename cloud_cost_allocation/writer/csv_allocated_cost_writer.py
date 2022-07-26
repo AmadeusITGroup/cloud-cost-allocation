@@ -38,18 +38,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'ProductOnDemandCost'
         ]
 
-        # Add product meters
-        if 'NumberOfProductMeters' in self.config['General']:
-            for i in range(1, int(self.config['General']['NumberOfProductMeters']) + 1):
-                if i == 1:
-                    headers.extend(['ProductMeterName'])
-                    headers.extend(['ProductMeterUnit'])
-                    headers.extend(['ProductMeterValue'])
-                else:
-                    headers.extend(['ProductMeterName%s' % i])
-                    headers.extend(['ProductMeterUnit%s' % i])
-                    headers.extend(['ProductMeterValue%s' % i])
-
         # Add dimensions
         if 'Dimensions' in self.config['General']:
             for dimension in self.config['General']['Dimensions'].split(","):
@@ -61,6 +49,18 @@ class CSV_AllocatedCostWriter(GenericWriter):
                 headers.extend(['ProviderMeterName%s' % i])
                 headers.extend(['ProviderMeterUnit%s' % i])
                 headers.extend(['ProviderMeterValue%s' % i])
+
+        # Add product meters
+        if 'NumberOfProductMeters' in self.config['General']:
+            for i in range(1, int(self.config['General']['NumberOfProductMeters']) + 1):
+                if i == 1:
+                    headers.extend(['ProductMeterName'])
+                    headers.extend(['ProductMeterUnit'])
+                    headers.extend(['ProductMeterValue'])
+                else:
+                    headers.extend(['ProductMeterName%s' % i])
+                    headers.extend(['ProductMeterUnit%s' % i])
+                    headers.extend(['ProductMeterValue%s' % i])
 
         return headers
 
