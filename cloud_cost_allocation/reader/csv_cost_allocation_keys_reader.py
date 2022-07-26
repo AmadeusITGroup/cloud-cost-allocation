@@ -92,9 +92,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 provider_meter_unit = None
                 provider_meter_value = None
                 if 'ProviderMeterName%d' % i in line:
-                    provider_meter_name = line['ProviderMeterName%d' % i]
+                    provider_meter_name = line['ProviderMeterName%d' % i].lower()
                 if 'ProviderMeterUnit%d' % i in line:
-                    provider_meter_unit = line['ProviderMeterUnit%d' % i]
+                    provider_meter_unit = line['ProviderMeterUnit%d' % i].lower()
                 if 'ProviderMeterValue%d' % i in line:
                     provider_meter_value_column = 'ProviderMeterValue%d' % i
                     provider_meter_value = line[provider_meter_value_column]
@@ -154,12 +154,12 @@ class CSV_CostAllocationKeysReader(GenericReader):
             for i in range(1, self.nb_product_dimensions + 1):
                 product_dimension_name_column = "ProductDimensionName%d" % i
                 if product_dimension_name_column in line:
-                    product_dimension_name = line[product_dimension_name_column]
+                    product_dimension_name = line[product_dimension_name_column].lower()
                 else:
                     product_dimension_name = None
                 product_dimension_element_column = "ProductDimensionElement%d" % i
                 if product_dimension_element_column in line:
-                    product_dimension_element = line[product_dimension_element_column]
+                    product_dimension_element = line[product_dimension_element_column].lower()
                 else:
                     product_dimension_element = None
                 if product_dimension_name or product_dimension_element:
@@ -175,14 +175,14 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 if i > 1:
                     product_meter_name_column += str(i)
                 if product_meter_name_column in line:
-                    product_meter_name = line[product_meter_name_column]
+                    product_meter_name = line[product_meter_name_column].lower()
                 else:
                     product_meter_name = None
                 product_meter_unit_column = "ProductMeterUnit"
                 if i > 1:
                     product_meter_unit_column += str(i)
                 if product_meter_unit_column in line:
-                    product_meter_unit = line[product_meter_unit_column]
+                    product_meter_unit = line[product_meter_unit_column].lower()
                 else:
                     product_meter_unit = None
                 product_meter_value = None
