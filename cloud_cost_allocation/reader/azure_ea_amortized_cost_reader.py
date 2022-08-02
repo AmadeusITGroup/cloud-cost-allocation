@@ -7,6 +7,7 @@ import re
 
 from cloud_cost_allocation.cloud_cost_allocator import CostItemFactory, CloudCostItem
 from cloud_cost_allocation.reader.base_reader import GenericReader
+from cloud_cost_allocation.utils import utils
 
 
 class AzureEaAmortizedCostReader(GenericReader):
@@ -31,7 +32,12 @@ class AzureEaAmortizedCostReader(GenericReader):
         cloud_cost_item.date_str = azure_date.strftime(self.config['General']['DateFormat'])
 
         # Set amortized cost
-        cloud_cost_item.cloud_amortized_cost = float(line["CostInBillingCurrency"])
+        cost_in_billing_currency = line["CostInBillingCurrency"]
+        if utils.is_float(cost_in_billing_currency):
+            cloud_cost_item.cloud_amortized_cost = float(cost_in_billing_currency)
+        else:
+            error("CostInBillingCurrency cannot be parsed in line %s", line)
+            return None
 
         # Compute and set on-demand cost
         # https://docs.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
@@ -39,7 +45,14 @@ class AzureEaAmortizedCostReader(GenericReader):
             if line["ChargeType"] == "UnusedReservation":
                 cloud_cost_item.cloud_on_demand_cost = 0.0  # Unused reservations are not on-demand costs
             else:
-                cloud_cost_item.cloud_on_demand_cost = float(line["Quantity"])*float(line["UnitPrice"])
+                quantity = line["Quantity"]
+                unit_price = line["UnitPrice"]
+                if utils.is_float(quantity) and utils.is_float(unit_price):
+                    cloud_cost_item.cloud_on_demand_cost = float(quantity) * float(unit_price)
+                else:
+                    error("Quantity or UnitPrice cannot be parsed in line %s", line)
+                    cloud_cost_item.cloud_on_demand_cost = 0.0  # return None?
+
         else:
             cloud_cost_item.cloud_on_demand_cost = cloud_cost_item.cloud_amortized_cost
 

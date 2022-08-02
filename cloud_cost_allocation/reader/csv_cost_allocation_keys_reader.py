@@ -10,6 +10,7 @@ import re
 
 from cloud_cost_allocation.cost_items import ConsumerCostItem, CostItemFactory
 from cloud_cost_allocation.reader.base_reader import GenericReader
+from cloud_cost_allocation.utils import utils
 
 
 class CSV_CostAllocationKeysReader(GenericReader):
@@ -70,11 +71,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
         if consumer_cost_item.provider_cost_allocation_type == 'Key':
             key_str = ""
             if 'ProviderCostAllocationKey' in line and line['ProviderCostAllocationKey']:
-                try:
-                    key_str = line['ProviderCostAllocationKey']
+                key_str = line['ProviderCostAllocationKey']
+                if utils.is_float(key_str):
                     consumer_cost_item.provider_cost_allocation_key = float(key_str)
-                except (TypeError, ValueError):
-                    pass
             if consumer_cost_item.provider_cost_allocation_key == 0.0:
                 error("Skipping cost allocation key line with non-float " +
                       " ProviderCostAllocationKey: '" + key_str + "'" +
@@ -98,14 +97,11 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 if 'ProviderMeterValue%d' % i in line:
                     provider_meter_value_column = 'ProviderMeterValue%d' % i
                     provider_meter_value = line[provider_meter_value_column]
-                    if provider_meter_value:
-                        try:
-                            float(provider_meter_value)
-                        except (TypeError, ValueError):
-                            error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
-                                  "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
-                                  "is not a float")
-                            provider_meter_value = None
+                    if provider_meter_value and not utils.is_float(provider_meter_value):
+                        error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
+                              "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
+                              "is not a float")
+                        provider_meter_value = None
                 if provider_meter_name or provider_meter_unit or provider_meter_value:
                     provider_meter = {}
                     provider_meter['Name'] = provider_meter_name
@@ -191,13 +187,11 @@ class CSV_CostAllocationKeysReader(GenericReader):
                     product_meter_value_column += str(i)
                 if product_meter_value_column in line:
                     product_meter_value = line[product_meter_value_column]
-                    if product_meter_value:
-                        try:
-                            float(product_meter_value)
-                        except (TypeError, ValueError):
-                            error("Value '" + product_meter_value + "' of '" + product_meter_value_column +
-                                  "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
-                                  "is not a float")
+                    if product_meter_value and not utils.is_float(product_meter_value):
+                        error("Value '" + product_meter_value + "' of '" + product_meter_value_column +
+                              "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                              "is not a float")
+                        product_meter_value = None
                 if product_meter_name or product_meter_unit or product_meter_value:
                     product_meter = {}
                     product_meter['Name'] = product_meter_name

@@ -8,6 +8,13 @@ import requests
 from csv import DictReader, DictWriter
 
 
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except(TypeError, ValueError):
+        return False
+
 def read_csv(uri, reader, cost_items):
     if validators.url(uri):
         read_csv_url(uri, reader, cost_items)
