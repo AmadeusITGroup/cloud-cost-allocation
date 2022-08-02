@@ -28,7 +28,7 @@ def main():
     # Parse arguments
     parser = OptionParser()
     parser.add_option("-C", "--config", help="Configuration file", action="store")
-    parser.add_option("-c", "--cost", help="Cloud cost CSV files, prefixed with their types and colon character, for example: AzureEaAmortizedCost:az_costs.csv", action="append")
+    parser.add_option("-c", "--cost", help="Cloud cost CSV files, prefixed with their types and colon character, for example: AzEaAmo:az_costs.csv", action="append")
     parser.add_option("-k", "--keys", help="Cost allocation key CSV files", action="append", default=[])
     parser.add_option("-o", "--output", help="The output allocated cost CSV file", action="store", default="")
     (options, _) = parser.parse_args()
