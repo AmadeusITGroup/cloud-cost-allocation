@@ -1,17 +1,17 @@
-Date,ProviderService,ProviderCostAllocationKey,ConsumerService,Product,ProductMeterName,ProductMeterUnit,ProductMeterValue,ProductMeterName2,ProductMeterUnit2,ProductMeterValue2
-2022-07-22,a,2,b,p1,,,,,,
-2022-07-22,a,2,b,p2,,,,,,
-2022-07-22,b,1,,p1,x,trx,1,,,
-2022-07-22,b,1,,p1,y,trx,1,,,
-2022-07-22,b,1,,p2,z,trx,1,,,
-2022-07-22,a,1,c,p3,x0,trx,1,y0,trx,1
-2022-07-22,a,1,c,p3,x0,trx,1,y1,trx,1
-2022-07-22,a,1,c,p3,x1,trx,1,,,
-2022-07-22,a,1,c,p4,,,,,,
-2022-07-22,c,1,,p3,x0,trx,1,y0,trx,1
-2022-07-22,c,1,,p3,x0,trx,1,y1,trx,1
-2022-07-22,c,1,,p3,x1,trx,1,y0,trx,1
-2022-07-22,c,1,,p3,x1,trx,1,y1,trx,1
-2022-07-22,c,1,,p4,x,trx,1,y,trx,1
+Date,ProviderService,ProviderCostAllocationKey,ConsumerService,Product,ProductDimensionName1,ProductDimensionElement1,ProductDimensionName2,ProductDimensionElement2,ProductMeterName,ProductMeterUnit,ProductMeterValue,ProductMeterName2,ProductMeterUnit2,ProductMeterValue2
+2022-07-22,a,2,b,p,d1,e1,,,,,,,,
+2022-07-22,a,2,b,p,d1,e2,,,,,,,,
+2022-07-22,b,1,,p,d1,e1,,,x,trx,1,,,
+2022-07-22,b,1,,p,d1,e1,,,y,trx,1,,,
+2022-07-22,b,1,,p,d1,e2,,,z,trx,1,,,
+2022-07-22,a,1,c,p,d2,f1,d3,f2,x0,trx,1,y0,trx,1
+2022-07-22,a,1,c,p,d2,f1,d3,f2,x0,trx,1,y1,trx,1
+2022-07-22,a,1,c,p,d2,f1,d3,f2,x1,trx,1,,,
+2022-07-22,a,1,c,p,d2,f1,d3,f3,,,,,,
+2022-07-22,c,1,,p,d2,f1,d3,f2,x0,trx,1,y0,trx,1
+2022-07-22,c,1,,p,d2,f1,d3,f2,x0,trx,1,y1,trx,1
+2022-07-22,c,1,,p,d2,f1,d3,f2,x1,trx,1,y0,trx,1
+2022-07-22,c,1,,p,d2,f1,d3,f2,x1,trx,1,y1,trx,1
+2022-07-22,c,1,,p,d2,f1,d3,f3,x,trx,1,y,trx,1
 
 

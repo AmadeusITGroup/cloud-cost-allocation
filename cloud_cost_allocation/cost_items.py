@@ -50,6 +50,10 @@ class CostItem(ABC):
         # Default behavior, overridden in child classes
         return ''
 
+    def get_product_dimensions(self) -> list[dict[str, str]]:
+        # Default behavior, overridden in child classes
+        return []
+
     def get_product_meters(self) -> list[dict[str, str]]:
         # Default behavior, overridden in child classes
         return []
@@ -177,10 +181,11 @@ class ConsumerCostItem(CostItem):
         'provider_cost_allocation_cloud_tag_selector',  # type: str
         'provider_meters',                              # type: list[dict[str,str]]
         'product',                                      # type: str
+        'product_dimensions',                           # type: list[dict[str,str]]
+        'product_meters',                               # type: list[dict[str,str]]
         'product_cost',                                 # type: float
         'product_amortized_cost',                       # type: float
         'product_on_demand_cost',                       # type: float
-        'product_meters',                               # type: list[dict[str,str]]
 
         # Helpers
         'is_removed_from_cycle',      # type: bool
@@ -197,10 +202,11 @@ class ConsumerCostItem(CostItem):
         self.provider_cost_allocation_cloud_tag_selector = ""
         self.provider_meters = []
         self.product = ""
+        self.product_dimensions = []
+        self.product_meters = []
         self.product_cost = 0.0
         self.product_amortized_cost = 0.0
         self.product_on_demand_cost = 0.0
-        self.product_meters = []
         self.is_removed_from_cycle = False
         self.provider_service_instance = None
 
@@ -209,6 +215,9 @@ class ConsumerCostItem(CostItem):
 
     def get_product(self) -> str:
         return self.product
+
+    def get_product_dimensions(self) -> list[dict[str, str]]:
+        return self.product_dimensions
 
     def get_product_meters(self) -> list[dict[str, str]]:
         return self.product_meters
@@ -264,13 +273,15 @@ class ConsumerCostItem(CostItem):
                 # Compute item cost
                 provider_tag_selector = \
                     self.provider_service_instance.provider_tag_selector_cost_dict[self.provider_tag_selector]
-                cost_by_product_meters = \
-                    provider_tag_selector.get_or_add_cost_by_product_meter(self.product, self.product_meters)
-                if cost_by_product_meters.total_keys != 0.0:
-                    cost = cost_by_product_meters.adjusted_cost * self.provider_cost_allocation_key / \
-                            cost_by_product_meters.total_keys
+                cost_by_product_info = \
+                    provider_tag_selector.get_or_add_cost_by_product_info(self.product,
+                                                                          self.product_dimensions,
+                                                                          self.product_meters)
+                if cost_by_product_info.total_keys != 0.0:
+                    cost = cost_by_product_info.adjusted_cost * self.provider_cost_allocation_key / \
+                            cost_by_product_info.total_keys
                 else:
-                    cost = cost_by_product_meters.adjusted_cost / cost_by_product_meters.nb_keys
+                    cost = cost_by_product_info.adjusted_cost / cost_by_product_info.nb_keys
 
                 # Set cost
                 if is_for_products and self.product:
@@ -290,13 +301,14 @@ class ConsumerCostItem(CostItem):
             self.provider_service_instance.visit_for_cycles(visited_service_instance_list, service_precedence_list)
 
 
-class ProviderTagSelectorCostByProductMeters(object):
+class ProviderTagSelectorCostByProductInfo(object):
     """
     Represents the cost allocated for a given provider tag selector for a given product
     """
 
     __slots__ = (
         'product',             # type: str
+        'product_dimensions',  # type: list[dict[str, str]]
         'product_meters',      # type: list[dict[str, str]]
         'raw_cost',            # type: float
         'adjusted_cost',       # type: float
@@ -304,8 +316,9 @@ class ProviderTagSelectorCostByProductMeters(object):
         'nb_keys'              # type: float
     )
 
-    def __init__(self, product, product_meters):
+    def __init__(self, product, product_dimensions, product_meters):
         self.product = product
+        self.product_dimensions = product_dimensions
         self.product_meters = product_meters
         self.raw_cost = 0.0
         self.adjusted_cost = 0.0
@@ -313,29 +326,62 @@ class ProviderTagSelectorCostByProductMeters(object):
         self.nb_keys = 0.0
 
     @staticmethod
-    def get_product_meters_id(product: str, product_meters: list[dict[str, str]]) -> str:
+    def get_product_info_id(product: str,
+                            product_dimensions: list[dict[str, str]],
+                            product_meters: list[dict[str, str]]) -> str:
         product_meter_id = product
+        for product_dimension in product_dimensions:
+            product_meter_id += "."
+            if "Name" in product_dimension:
+                product_meter_id += product_dimension["Name"]
+            product_meter_id += "="
+            if "Element" in product_dimension:
+                product_meter_id += product_dimension["Element"]
         for product_meter in product_meters:
             product_meter_id += "."
             if "Name" in product_meter:
                 product_meter_id += product_meter["Name"]
         return product_meter_id
 
-    def get_similarity_score(self, other_product: str, other_product_meters: list[dict[str, str]]) -> int:
+    def get_similarity_score(self, other_product: str,
+                             other_product_dimensions: list[dict[str, str]],
+                             other_product_meters: list[dict[str, str]]) -> int:
         score = 0
+
+        # Check product
         if self.product == other_product:
             score += 1
-            index = 0
+
+            # Check product dimension
+            product_dimension_index = 0
+            for product_dimension in self.product_dimensions:
+                if product_dimension_index < len(other_product_dimensions):
+                    other_product_dimension = other_product_dimensions[product_dimension_index]
+                    if product_dimension['Name'] == other_product_dimension['Name']:
+                        score += 1
+                    else:
+                        break
+                    if product_dimension['Element'] == other_product_dimension['Element']:
+                        score += 1
+                    else:
+                        break
+                else:
+                    break
+                product_dimension_index += 1
+
+            # Check product meters
+            product_meter_index = 0
             for product_meter in self.product_meters:
-                if index < len(other_product_meters):
-                    other_product_meter = other_product_meters[index]
+                if product_meter_index < len(other_product_meters):
+                    other_product_meter = other_product_meters[product_meter_index]
                     if product_meter['Name'] == other_product_meter['Name']:
                         score += 1
                     else:
                         break
                 else:
                     break
-                index += 1
+                product_meter_index += 1
+
         return score
 
     def is_default(self) -> bool:
@@ -351,59 +397,63 @@ class ProviderTagSelectorCost(object):
         'selector',                 # type: str
         'raw_cost',                 # type: float
         'adjusted_cost',            # type: float
-        'costs_by_product_meters',  # type: dict[ProviderTagSelectorCostByProductMeters]
+        'costs_by_product_info',    # type: dict[ProviderTagSelectorCostByProductInfo]
     )
 
     def __init__(self, selector):
         self.selector = selector
         self.raw_cost = 0.0
         self.adjusted_cost = 0.0
-        self.costs_by_product_meters = {}
+        self.costs_by_product_info = {}
 
-    def get_or_add_cost_by_product_meter(self,
-                                         product: str,
-                                         product_meters: list[dict[str, str]])\
-            -> ProviderTagSelectorCostByProductMeters:
+    def get_or_add_cost_by_product_info(self,
+                                        product: str,
+                                        product_dimensions: list[dict[str, str]],
+                                        product_meters: list[dict[str, str]])\
+            -> ProviderTagSelectorCostByProductInfo:
         product_meters_id = \
-            ProviderTagSelectorCostByProductMeters.get_product_meters_id(product, product_meters)
-        if product_meters_id not in self.costs_by_product_meters:
-            self.costs_by_product_meters[product_meters_id] = ProviderTagSelectorCostByProductMeters(product,
-                                                                                                     product_meters)
-        return self.costs_by_product_meters[product_meters_id]
+            ProviderTagSelectorCostByProductInfo.get_product_info_id(product, product_dimensions, product_meters)
+        if product_meters_id not in self.costs_by_product_info:
+            self.costs_by_product_info[product_meters_id] = ProviderTagSelectorCostByProductInfo(product,
+                                                                                                 product_dimensions,
+                                                                                                 product_meters)
+        return self.costs_by_product_info[product_meters_id]
 
     def is_default(self) -> bool:
         return True if len(self.selector) == 0 else False
 
-    def update_cost_by_product_meters_raw_cost(self, provider_cost_item: CostItem) -> None:
+    def update_cost_by_product_info_raw_cost(self, provider_cost_item: CostItem) -> None:
 
         # Find most similar cost by product meters
         provider_product = provider_cost_item.get_product()
+        provider_product_dimensions = provider_cost_item.get_product_dimensions()
         provider_product_meters = provider_cost_item.get_product_meters()
-        most_similar_cost_by_product_meters = []
+        most_similar_cost_by_product_info = []
         highest_similarity_score = 0
-        for cost_by_product_meters in self.costs_by_product_meters.values():
-            similarity_score = cost_by_product_meters.get_similarity_score(provider_product, provider_product_meters)
+        for cost_by_product_info in self.costs_by_product_info.values():
+            similarity_score = cost_by_product_info.get_similarity_score(provider_product,
+                                                                         provider_product_dimensions,
+                                                                         provider_product_meters)
             if similarity_score > highest_similarity_score:
-                most_similar_cost_by_product_meters = [cost_by_product_meters]
+                most_similar_cost_by_product_info = [cost_by_product_info]
                 highest_similarity_score = similarity_score
             elif similarity_score == highest_similarity_score:
-                most_similar_cost_by_product_meters.append(cost_by_product_meters)
+                most_similar_cost_by_product_info.append(cost_by_product_info)
 
         # No most similar exist, then it's all
-        if not most_similar_cost_by_product_meters:
-            most_similar_cost_by_product_meters = self.costs_by_product_meters.values()
+        if not most_similar_cost_by_product_info:
+            most_similar_cost_by_product_info = self.costs_by_product_info.values()
 
         # Dispatch raw cost between most similar cost by product meters proportionally to their total keys
         total_keys = 0.0
-        nb_most_similar_cost_by_product_meters = len(most_similar_cost_by_product_meters)
-        for cost_by_product_meters in most_similar_cost_by_product_meters:
-            total_keys += cost_by_product_meters.total_keys
-        for cost_by_product_meters in most_similar_cost_by_product_meters:
+        nb_most_similar_cost_by_product_info = len(most_similar_cost_by_product_info)
+        for cost_by_product_info in most_similar_cost_by_product_info:
+            total_keys += cost_by_product_info.total_keys
+        for cost_by_product_info in most_similar_cost_by_product_info:
             if total_keys != 0.0:
-                cost_by_product_meters.raw_cost += provider_cost_item.cost * cost_by_product_meters.total_keys /\
-                                                   total_keys
+                cost_by_product_info.raw_cost += provider_cost_item.cost * cost_by_product_info.total_keys / total_keys
             else:
-                cost_by_product_meters.raw_cost += provider_cost_item.cost / nb_most_similar_cost_by_product_meters
+                cost_by_product_info.raw_cost += provider_cost_item.cost / nb_most_similar_cost_by_product_info
 
 
 class ServiceInstance(object):
@@ -457,11 +507,12 @@ class ServiceInstance(object):
             provider_tag_selector_cost = self.provider_tag_selector_cost_dict[consumer_item.provider_tag_selector]
 
             # Get or add cost by product meters, and update keys
-            cost_by_product_meter = \
-                provider_tag_selector_cost.get_or_add_cost_by_product_meter(consumer_item.product,
-                                                                            consumer_item.product_meters)
-            cost_by_product_meter.total_keys += consumer_item.provider_cost_allocation_key
-            cost_by_product_meter.nb_keys += 1
+            cost_by_product_info = \
+                provider_tag_selector_cost.get_or_add_cost_by_product_info(consumer_item.product,
+                                                                           consumer_item.product_dimensions,
+                                                                           consumer_item.product_meters)
+            cost_by_product_info.total_keys += consumer_item.provider_cost_allocation_key
+            cost_by_product_info.nb_keys += 1
 
         # Reset the number of matching provider tag selectors of every item
         for item in self.cost_items:
@@ -498,7 +549,7 @@ class ServiceInstance(object):
                             item.nb_matching_provider_tag_selectors += 1
                             provider_tag_selector_cost.raw_cost += item.cost
                             total_provider_tag_selector_raw_cost += item.cost
-                            provider_tag_selector_cost.update_cost_by_product_meters_raw_cost(item)
+                            provider_tag_selector_cost.update_cost_by_product_info_raw_cost(item)
 
         # Compute the raw cost of the default provider tag selector
         if '' in self.provider_tag_selector_cost_dict:
@@ -508,7 +559,7 @@ class ServiceInstance(object):
                     item.nb_matching_provider_tag_selectors = 1
                     default_provider_tag_selector.raw_cost += item.cost
                     total_provider_tag_selector_raw_cost += item.cost
-                    default_provider_tag_selector.update_cost_by_product_meters_raw_cost(item)
+                    default_provider_tag_selector.update_cost_by_product_info_raw_cost(item)
 
         # Check if provider tag selectors form a partition
         is_partition = True
@@ -538,16 +589,16 @@ class ServiceInstance(object):
                 provider_tag_selector_cost.adjusted_cost = self.cost / len(self.provider_tag_selector_cost_dict)
 
             # Adjust costs by product meter
-            for cost_by_product_meter in provider_tag_selector_cost.costs_by_product_meters.values():
+            for cost_by_product_info in provider_tag_selector_cost.costs_by_product_info.values():
                 if provider_tag_selector_cost.raw_cost != 0.0:
                     # Adjust proportionally
-                    cost_by_product_meter.adjusted_cost = cost_by_product_meter.raw_cost * \
+                    cost_by_product_info.adjusted_cost = cost_by_product_info.raw_cost * \
                                                           provider_tag_selector_cost.adjusted_cost / \
                                                           provider_tag_selector_cost.raw_cost
                 else:
                     # Adjust equally
-                    cost_by_product_meter.adjusted_cost = provider_tag_selector_cost.adjusted_cost / \
-                                                          len(provider_tag_selector_cost.costs_by_product_meters)
+                    cost_by_product_info.adjusted_cost = provider_tag_selector_cost.adjusted_cost / \
+                                                          len(provider_tag_selector_cost.costs_by_product_info)
 
     @staticmethod
     def get_id(service: str, instance: str) -> str:

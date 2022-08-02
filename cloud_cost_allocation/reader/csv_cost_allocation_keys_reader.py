@@ -18,8 +18,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
     '''
 
     __slots__ = (
-        'nb_provider_meters',  # type: int
-        'nb_product_meters',   # type: int
+        'nb_provider_meters',     # type: int
+        'nb_product_dimensions',  # type: int
+        'nb_product_meters',      # type: int
     )
 
     def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
@@ -31,6 +32,10 @@ class CSV_CostAllocationKeysReader(GenericReader):
             self.nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
         else:
             self.nb_provider_meters = 0
+        if 'NumberOfProductDimensions' in self.config['General']:
+            self.nb_product_dimensions = int(self.config['General']['NumberOfProductDimensions'])
+        else:
+            self.nb_product_dimensions = 0
         if 'NumberOfProductMeters' in self.config['General']:
             self.nb_product_meters = int(self.config['General']['NumberOfProductMeters'])
         else:
@@ -87,9 +92,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 provider_meter_unit = None
                 provider_meter_value = None
                 if 'ProviderMeterName%d' % i in line:
-                    provider_meter_name = line['ProviderMeterName%d' % i]
+                    provider_meter_name = line['ProviderMeterName%d' % i].lower()
                 if 'ProviderMeterUnit%d' % i in line:
-                    provider_meter_unit = line['ProviderMeterUnit%d' % i]
+                    provider_meter_unit = line['ProviderMeterUnit%d' % i].lower()
                 if 'ProviderMeterValue%d' % i in line:
                     provider_meter_value_column = 'ProviderMeterValue%d' % i
                     provider_meter_value = line[provider_meter_value_column]
@@ -144,6 +149,25 @@ class CSV_CostAllocationKeysReader(GenericReader):
         if 'Product' in line:
             consumer_cost_item.product = line['Product'].lower()
 
+        # Populate product dimensions
+        if self.nb_product_dimensions:
+            for i in range(1, self.nb_product_dimensions + 1):
+                product_dimension_name_column = "ProductDimensionName%d" % i
+                if product_dimension_name_column in line:
+                    product_dimension_name = line[product_dimension_name_column].lower()
+                else:
+                    product_dimension_name = None
+                product_dimension_element_column = "ProductDimensionElement%d" % i
+                if product_dimension_element_column in line:
+                    product_dimension_element = line[product_dimension_element_column].lower()
+                else:
+                    product_dimension_element = None
+                if product_dimension_name or product_dimension_element:
+                    product_dimension = {}
+                    product_dimension['Name'] = product_dimension_name
+                    product_dimension['Element'] = product_dimension_element
+                    consumer_cost_item.product_dimensions.append(product_dimension)
+
         # Populate product meters
         if self.nb_product_meters:
             for i in range(1, self.nb_product_meters + 1):
@@ -151,14 +175,14 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 if i > 1:
                     product_meter_name_column += str(i)
                 if product_meter_name_column in line:
-                    product_meter_name = line[product_meter_name_column]
+                    product_meter_name = line[product_meter_name_column].lower()
                 else:
                     product_meter_name = None
                 product_meter_unit_column = "ProductMeterUnit"
                 if i > 1:
                     product_meter_unit_column += str(i)
                 if product_meter_unit_column in line:
-                    product_meter_unit = line[product_meter_unit_column]
+                    product_meter_unit = line[product_meter_unit_column].lower()
                 else:
                     product_meter_unit = None
                 product_meter_value = None
