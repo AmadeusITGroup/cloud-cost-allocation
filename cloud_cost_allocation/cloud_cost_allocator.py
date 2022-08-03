@@ -54,7 +54,6 @@ class CloudCostAllocator(object):
         for cost_item in cost_items:
             if date_str != cost_item.date_str:
                 error("Found cost items with different dates: " + date_str + " and " + cost_item.date_str)
-                return False
 
         # Check all currencies are the same and populate missing ones (currencies are missing for consumer
         # cost items)

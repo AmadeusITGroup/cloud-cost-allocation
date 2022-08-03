@@ -101,33 +101,39 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['ProviderCostAllocationCloudTagSelector'] = cost_item.provider_cost_allocation_cloud_tag_selector
 
         # Add the provider metrics
-        for i in range(1, len(cost_item.provider_meters) + 1):
-            meter = cost_item.provider_meters[i-1]
-            if meter:
-                data['ProviderMeterName%s' % i] = meter['Name']
-                data['ProviderMeterUnit%s' % i] = meter['Unit']
-                data['ProviderMeterValue%s' % i] = meter['Value']
+        nb_provider_meters = len(cost_item.provider_meters)
+        if nb_provider_meters:
+            for i in range(1, nb_provider_meters + 1):
+                meter = cost_item.provider_meters[i-1]
+                if meter:
+                    data['ProviderMeterName%s' % i] = meter['Name']
+                    data['ProviderMeterUnit%s' % i] = meter['Unit']
+                    data['ProviderMeterValue%s' % i] = meter['Value']
 
         # Add product information
         data['Product'] = cost_item.product
         if cost_item.product:
             data['ProductAmortizedCost'] = cost_item.product_amortized_cost
             data['ProductOnDemandCost'] = cost_item.product_on_demand_cost
-        for i in range(1, len(cost_item.product_dimensions) + 1):
-            dimension = cost_item.product_dimensions[i-1]
-            if dimension:
-                data['ProductDimensionName%s' % i] = dimension['Name']
-                data['ProductDimensionElement%s' % i] = dimension['Element']
-        for i in range(1, len(cost_item.product_meters) + 1):
-            meter = cost_item.product_meters[i-1]
-            if meter:
-                if i == 1:
-                    data['ProductMeterName'] = meter['Name']
-                    data['ProductMeterUnit'] = meter['Unit']
-                    data['ProductMeterValue'] = meter['Value']
-                else:
-                    data['ProductMeterName%s' % i] = meter['Name']
-                    data['ProductMeterUnit%s' % i] = meter['Unit']
-                    data['ProductMeterValue%s' % i] = meter['Value']
+        nb_product_dimensions = len(cost_item.product_dimensions)
+        if nb_product_dimensions:
+            for i in range(1, nb_product_dimensions + 1):
+                dimension = cost_item.product_dimensions[i-1]
+                if dimension:
+                    data['ProductDimensionName%s' % i] = dimension['Name']
+                    data['ProductDimensionElement%s' % i] = dimension['Element']
+        nb_product_meters = len(cost_item.product_meters)
+        if nb_product_meters:
+            for i in range(1, nb_product_meters + 1):
+                meter = cost_item.product_meters[i-1]
+                if meter:
+                    if i == 1:
+                        data['ProductMeterName'] = meter['Name']
+                        data['ProductMeterUnit'] = meter['Unit']
+                        data['ProductMeterValue'] = meter['Value']
+                    else:
+                        data['ProductMeterName%s' % i] = meter['Name']
+                        data['ProductMeterUnit%s' % i] = meter['Unit']
+                        data['ProductMeterValue%s' % i] = meter['Value']
 
         return data
