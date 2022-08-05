@@ -682,44 +682,52 @@ class ServiceInstance(object):
                 cycle_message.write(visited_service_instance.get_self_id() + ",")
             cycle_message.write(self.get_self_id())
 
-            # Search for the first and the second service instances
-            first_service_instance = None
-            second_service_instance = None
-            for service in service_precedence_list:
-                for service_instance in visited_service_instance_list:
-                    if service_instance.service == service:
-                        if not first_service_instance:
-                            first_service_instance = service_instance
-                            break
-                        elif not second_service_instance:
-                            second_service_instance = service_instance
-                            break
-                if second_service_instance:
+            # Iterate in reducing service precedence list
+            working_service_precedence_list = service_precedence_list.copy()
+            while working_service_precedence_list:
+
+                # Search for the first service and the second service
+                first_service = None
+                second_service = None
+                for service in working_service_precedence_list:
+                    for service_instance in visited_service_instance_list:
+                        if service_instance.service == service:
+                            if not first_service:
+                                first_service = service
+                                break
+                            elif not second_service:
+                                second_service = service
+                                break
+                    if second_service:
+                        break
+
+                # If two services in the precedence list do not exist in the cycle, the cycle cannot be broken
+                if not second_service:
                     break
 
-            # If two services in the precedence list do not exist in the cycle, the cycle cannot be broken
-            if not second_service_instance:
-                error("Unbreakable cost allocation cycle detected: " + cycle_message.getvalue())
-                raise UnbreakableCycleException
+                # Try to break the cycle before the first service
+                for service_instance in visited_service_instance_list:
+                    if service_instance.service == first_service:
+                        for cost_item in service_instance.cost_items:
+                            provider_service_instance = cost_item.get_consumer_cost_item_provider_service_instance()
+                            if provider_service_instance and\
+                               not provider_service_instance.is_visited and provider_service_instance.is_being_visited:
+                                cost_item.is_removed_from_cycle = True
+                                info("Broke cost allocation cycle at provider service instance " +
+                                     provider_service_instance.get_self_id() + " of service instance " +
+                                     service_instance.get_self_id() + ", as services " +
+                                     first_service + " and " + second_service +
+                                     " have been identified in the precedence list and in the cycle " +
+                                     cycle_message.getvalue())
 
-            # Break the cycle before the first service instance
-            for cost_item in first_service_instance.cost_items:
-                provider_service_instance = cost_item.get_consumer_cost_item_provider_service_instance()
-                if provider_service_instance and\
-                   not provider_service_instance.is_visited and provider_service_instance.is_being_visited:
-                    cost_item.is_removed_from_cycle = True
-                    info("Broke cost allocation cycle at provider service instance " +
-                         provider_service_instance.get_self_id() + ", as service instances " +
-                         first_service_instance.get_self_id() + " and " + second_service_instance.get_self_id() +
-                         " have been identified in the precedence list and in the cycle " + cycle_message.getvalue())
+                                # Iterate to the next cycle break
+                                raise BreakableCycleException
 
-                    # Iterate to the next cycle break
-                    raise BreakableCycleException
+                # Reduce service precedence list
+                working_service_precedence_list.pop(0)
 
-            # This code should be unreachable, but just in case
-            error("Unbreakable cost allocation cycle detected, although service instances in the precedence list " +
-                  first_service_instance.get_self_id() + " and " + second_service_instance.get_self_id() +
-                  " have been identified in the cycle:" + cycle_message.getvalue())
+            # If this code is reached, it means cycle could not be broken
+            error("Unbreakable cost allocation cycle detected: " + cycle_message.getvalue())
             raise UnbreakableCycleException
 
         # Set being visited
