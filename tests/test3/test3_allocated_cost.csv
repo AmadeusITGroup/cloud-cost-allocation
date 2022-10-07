@@ -15,4 +15,4 @@ Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,P
 2022-03-11,shared2,instance2,,8.0,0.0,EUR,finops,reservation,,CloudTagSelector,80.0,'reservation_zone' in globals() and reservation_zone == 'green',,,,,,N
 2022-03-11,x,x,"cloud_resource_id:resourceid0,",100.0,150.0,EUR,,,,,,,,,,,az,Y
 2022-03-11,x,x,,10.0,0.0,EUR,finops,reservation,,Key,100.0,,,,,,,Y
-2022-03-11,x,x,,55.0,75.0,EUR,shared1,shared1,,Cost,110.0,,,,,,,Y
+2022-03-11,x,x,"consumer_service:n/a,consumer_instance:-,",55.0,75.0,EUR,shared1,shared1,,Cost,110.0,,,,,,,Y

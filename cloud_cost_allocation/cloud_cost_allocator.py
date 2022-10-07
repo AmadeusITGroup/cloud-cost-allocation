@@ -189,8 +189,12 @@ class CloudCostAllocator(object):
                         actual_consumer_service_tag_key = consumer_service_tag_key
                         consumer_service = cost_item.tags[consumer_service_tag_key].strip().lower()
                         break
-                if consumer_service == "-":  # Ignore consumer service named "-"
-                    consumer_service = ""
+
+                # Check if consumer service must be ignored
+                if 'ConsumerServiceIgnoredValue' in self.config['TagKey']:
+                    for consumer_service_ignored_value in self.config['TagKey']['ConsumerServiceIgnoredValue'].split(","):
+                        if consumer_service == consumer_service_ignored_value.strip().lower():
+                            consumer_service = ""
 
                 # Check consumer instance
                 consumer_instance = ""
@@ -205,6 +209,7 @@ class CloudCostAllocator(object):
 
                 # Check product
                 # TODO: product dimension
+                # TODO: product ignored value
                 product = ""
                 actual_product_tag_key = ""
                 if 'Product' in self.config['TagKey']:
