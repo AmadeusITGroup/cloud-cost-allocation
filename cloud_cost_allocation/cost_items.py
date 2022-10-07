@@ -127,26 +127,6 @@ class CloudCostItem(CostItem):
         self.cloud_on_demand_cost = 0.0
         self.currency = ""
 
-    def matches_cloud_tag_selector(self, cloud_tag_selector: str, provider_service: str) -> bool:
-        eval_globals_dict = {}
-        for key, value in self.tags.items():
-            eval_globals_dict[re.sub(r'[^a-z0-9_]', '_', key)] = value
-        match = False
-        try:
-            # Eval is dangerous. Considerations:
-            # - Audit cost allocation keys, which are provided by DevOps
-            # - Possibly forbid cloud tag selectors
-            match = eval(cloud_tag_selector, eval_globals_dict, {})
-        except:
-            exception = sys.exc_info()[0]
-            error("Caught exception '" + str(exception) +
-                  "' while evaluating cloud_tag_selector '" +
-                  cloud_tag_selector +
-                  "' for provider service '" +
-                  provider_service +
-                  "'")
-        return match
-
     def visit_for_allocation(self,
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,
