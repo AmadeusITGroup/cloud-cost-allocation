@@ -189,8 +189,12 @@ class CloudCostAllocator(object):
                         actual_consumer_service_tag_key = consumer_service_tag_key
                         consumer_service = cost_item.tags[consumer_service_tag_key].strip().lower()
                         break
-                if consumer_service == "-":  # Ignore consumer service named "-"
-                    consumer_service = ""
+
+                # Check if consumer service must be ignored
+                if 'ConsumerServiceIgnoredValue' in self.config['TagKey']:
+                    for consumer_service_ignored_value in self.config['TagKey']['ConsumerServiceIgnoredValue'].split(","):
+                        if consumer_service == consumer_service_ignored_value.strip().lower():
+                            consumer_service = ""
 
                 # Check consumer instance
                 consumer_instance = ""
@@ -205,6 +209,7 @@ class CloudCostAllocator(object):
 
                 # Check product
                 # TODO: product dimension
+                # TODO: product ignored value
                 product = ""
                 actual_product_tag_key = ""
                 if 'Product' in self.config['TagKey']:
@@ -287,83 +292,102 @@ class CloudCostAllocator(object):
                                     cloud_tag_selector_consumer_cost_items: list[ConsumerCostItem],
                                     cloud_cost_items: list[CloudCostItem]) -> None:
 
-        # Process cloud cost items
-        new_consumer_cost_items = {}  # Key is consumer service instance id
+        # Build cloud tag dict: key is cloud cost item tag string; value is list of cloud cost items
+        # Since a lot of cloud cost items have the same tags, the goal is to minimize the number of tag evaluation
+        # contexts
+        cloud_tag_dict = {}
         for cloud_cost_item in cloud_cost_items:
+            tag_string = str(cloud_cost_item.tags)
+            if tag_string in cloud_tag_dict:
+                cloud_cost_item_list = cloud_tag_dict[tag_string]
+            else:
+                cloud_cost_item_list = []
+                cloud_tag_dict[tag_string] = cloud_cost_item_list
+            cloud_cost_item_list.append(cloud_cost_item)
+
+        # Process cloud tag dict
+        for cloud_cost_item_list in cloud_tag_dict.values():
 
             # Build variables from tags
             eval_globals_dict = {}
-            for key, value in cloud_cost_item.tags.items():
+            for key, value in cloud_cost_item_list[0].tags.items():
                 eval_globals_dict[re.sub(r'[^a-z0-9_]', '_', key)] = value
 
             # Process consumer cost items
-            # TODO: potential optimization: in case different consumer cost items have the same cloud tag selector
-            #       expression, evaluate it only once
             for cloud_tag_selector_consumer_cost_item in cloud_tag_selector_consumer_cost_items:
 
-                # Check if cloud tag selector
-                # Skip if same service: cost allocation to own service is unwanted
-                consumer_service_instance_id = ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
-                if cloud_cost_item.service != cloud_tag_selector_consumer_cost_item.provider_service:
+                # New consumer cost items created for this tag context and for this cloud tag selector
+                # There is a unique consumer cost item for a given consumer service instance
+                # TODO: Create different consumer cost items for different dimensions
+                new_consumer_cost_items = {}  # Key is (consumer) service instance id
 
-                    # Check if cloud selector match
-                    match = False
-                    try:
-                        # Eval is dangerous. Considerations:
-                        # - Possibly forbid cloud tag selectors
-                        # - Possibly whitelist cloud tag selectors using pattern matching
-                        match = eval(cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
-                                     eval_globals_dict, {})
-                    except:
-                        exception = sys.exc_info()[0]
-                        error("Caught exception '" + str(exception) +
-                              "' while evaluating cloud_tag_selector '" +
-                              cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector +
-                              "' for provider service '" +
-                              cloud_tag_selector_consumer_cost_item.provider_service +
-                              "', provider instance '" +
-                              cloud_tag_selector_consumer_cost_item.provider_instance +
-                              "'")
-                    if match:
+                # Check if cloud selector match
+                match = False
+                try:
+                    # Eval is dangerous. Considerations:
+                    # - Possibly forbid cloud tag selectors
+                    # - Possibly whitelist cloud tag selectors using pattern matching
+                    match = eval(cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
+                                 eval_globals_dict, {})
+                except:
+                    exception = sys.exc_info()[0]
+                    error("Caught exception '" + str(exception) +
+                          "' while evaluating cloud_tag_selector '" +
+                          cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector +
+                          "' for provider service '" +
+                          cloud_tag_selector_consumer_cost_item.provider_service +
+                          "', provider instance '" +
+                          cloud_tag_selector_consumer_cost_item.provider_instance +
+                          "'")
+                if match:
 
-                        # Check if matching service instance was already processed
-                        if consumer_service_instance_id in new_consumer_cost_items:
+                    # Process cloud cost items
+                    for cloud_cost_item in cloud_cost_item_list:
 
-                            # Increase existing cost allocation key with the amortized cost of this cloud cost item
-                            new_consumer_cost_item = new_consumer_cost_items[consumer_service_instance_id]
-                            new_consumer_cost_item.provider_cost_allocation_key += cloud_cost_item.cloud_amortized_cost
+                        # Skip if same service: cost allocation to own service is unwanted
+                        if cloud_cost_item.service != cloud_tag_selector_consumer_cost_item.provider_service:
 
-                        else:
-                            # Create new consumer cost item for this instance
-                            # TODO: A partial clone like this should be done in the class itself
-                            #       else it becomes very hard to identify when new attributes are added that may need to be cloned as well
-                            #       Also, this breaks when subclassing with relevant new attributes
-                            #      -> Move to ConsumerCostItem class
-                            new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
-                            new_consumer_cost_item.date_str = cloud_cost_item.date_str
-                            new_consumer_cost_item.service = cloud_cost_item.service
-                            new_consumer_cost_item.instance = cloud_cost_item.instance
-                            new_consumer_cost_item.tags = cloud_tag_selector_consumer_cost_item.tags.copy()
-                            new_consumer_cost_item.provider_service =\
-                                cloud_tag_selector_consumer_cost_item.provider_service
-                            new_consumer_cost_item.provider_instance =\
-                                cloud_tag_selector_consumer_cost_item.provider_instance
-                            # TODO: dimension tags are ignored; should we create different consumer cost items for
-                            #  different dimensions?
-                            # TODO: split and dispatch the provider meter values based on amortized costs
-                            new_consumer_cost_item.provider_meters =\
-                                cloud_tag_selector_consumer_cost_item.provider_meters.copy()
-                            new_consumer_cost_item.provider_cost_allocation_type = \
-                                cloud_tag_selector_consumer_cost_item.provider_cost_allocation_type
-                            new_consumer_cost_item.provider_tag_selector =\
-                                cloud_tag_selector_consumer_cost_item.provider_tag_selector
-                            new_consumer_cost_item.provider_cost_allocation_key = cloud_cost_item.cloud_amortized_cost
-                            new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
-                                cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+                            # Check if matching service instance was already processed
+                            consumer_cost_item_id =\
+                                ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
+                            if consumer_cost_item_id in new_consumer_cost_items:
 
-                            # Add new consumer cost item
-                            new_consumer_cost_items[consumer_service_instance_id] = new_consumer_cost_item
-                            cost_items.append(new_consumer_cost_item)
+                                # Increase existing cost allocation key with the amortized cost of this cloud cost item
+                                new_consumer_cost_item = new_consumer_cost_items[consumer_cost_item_id]
+                                new_consumer_cost_item.provider_cost_allocation_key +=\
+                                    cloud_cost_item.cloud_amortized_cost
+
+                            else:
+                                # Create new consumer cost item for this instance
+                                # TODO: A partial clone like this should be done in the class itself
+                                #       else it becomes very hard to identify when new attributes are added
+                                #       that may need to be cloned as well
+                                #       Also, this breaks when subclassing with relevant new attributes
+                                #      -> Move to ConsumerCostItem class
+                                new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                                new_consumer_cost_item.date_str = cloud_cost_item.date_str
+                                new_consumer_cost_item.service = cloud_cost_item.service
+                                new_consumer_cost_item.instance = cloud_cost_item.instance
+                                new_consumer_cost_item.tags = cloud_tag_selector_consumer_cost_item.tags.copy()
+                                new_consumer_cost_item.provider_service =\
+                                    cloud_tag_selector_consumer_cost_item.provider_service
+                                new_consumer_cost_item.provider_instance =\
+                                    cloud_tag_selector_consumer_cost_item.provider_instance
+                                # TODO: split and dispatch the provider meter values
+                                new_consumer_cost_item.provider_meters =\
+                                    cloud_tag_selector_consumer_cost_item.provider_meters.copy()
+                                new_consumer_cost_item.provider_cost_allocation_type = \
+                                    cloud_tag_selector_consumer_cost_item.provider_cost_allocation_type
+                                new_consumer_cost_item.provider_tag_selector =\
+                                    cloud_tag_selector_consumer_cost_item.provider_tag_selector
+                                new_consumer_cost_item.provider_cost_allocation_key =\
+                                    cloud_cost_item.cloud_amortized_cost
+                                new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
+                                    cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+
+                                # Add new consumer cost item
+                                new_consumer_cost_items[consumer_cost_item_id] = new_consumer_cost_item
+                                cost_items.append(new_consumer_cost_item)
 
     def visit_for_allocation_and_set_allocated_cost(self, is_amortized_cost: bool, is_for_products: bool) -> None:
 

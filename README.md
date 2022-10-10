@@ -210,6 +210,9 @@ ConsumerInstance = consumer_instance
 ConsumerComponent = consumer_component
 ConsumerEnvironment = consumer_environment
 
+# List of values to be ignored for the consumer tag
+ConsumerServiceIgnoredValue = n/a
+
 # The product tag key
 # In case of list, first matching key is used
 Product = product
