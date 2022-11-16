@@ -292,6 +292,11 @@ class CloudCostAllocator(object):
                                     cloud_tag_selector_consumer_cost_items: list[ConsumerCostItem],
                                     cloud_cost_items: list[CloudCostItem]) -> None:
 
+        # Build evaluation error dict, used to avoid error streaming in case of incorrect cloud tag selector expression
+        # Key = provider service, provider instance, cloud tag selector expression, exception
+        # Value = count of errors
+        evaluation_error_dict = {}
+
         # Build cloud tag dict: key is cloud cost item tag string; value is list of cloud cost items
         # Since a lot of cloud cost items have the same tags, the goal is to minimize the number of tag evaluation
         # contexts
@@ -331,14 +336,16 @@ class CloudCostAllocator(object):
                                  eval_globals_dict, {})
                 except:
                     exception = sys.exc_info()[0]
-                    error("Caught exception '" + str(exception) +
-                          "' while evaluating cloud_tag_selector '" +
-                          cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector +
-                          "' for provider service '" +
-                          cloud_tag_selector_consumer_cost_item.provider_service +
-                          "', provider instance '" +
-                          cloud_tag_selector_consumer_cost_item.provider_instance +
-                          "'")
+                    error_key =\
+                        cloud_tag_selector_consumer_cost_item.provider_service + chr(10) +\
+                        cloud_tag_selector_consumer_cost_item.provider_instance + chr(10) +\
+                        cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector + chr(10) +\
+                        str(exception)
+                    if error_key in evaluation_error_dict:
+                        error_count = evaluation_error_dict[error_key]
+                    else:
+                        error_count = 0
+                    evaluation_error_dict[error_key] = error_count + 1
                 if match:
 
                     # Process cloud cost items
@@ -388,6 +395,18 @@ class CloudCostAllocator(object):
                                 # Add new consumer cost item
                                 new_consumer_cost_items[consumer_cost_item_id] = new_consumer_cost_item
                                 cost_items.append(new_consumer_cost_item)
+
+        # Log evaluation errors
+        for error_key, error_count in evaluation_error_dict.items():
+            error_fields = error_key.split(chr(10))
+            provider_service = error_fields[0]
+            provider_instance = error_fields[1]
+            cloud_tag_selector = error_fields[2]
+            exception = error_fields[3]
+            error("Caught exception '" + exception + "' " + str(error_count) + " times " +
+                  "when evaluating ProviderCostAllocationCloudTagSelector '" + cloud_tag_selector +
+                  "' of ProviderService '" + provider_service +
+                  "' and of ProviderInstance '" + provider_instance + "'")
 
     def visit_for_allocation_and_set_allocated_cost(self, is_amortized_cost: bool, is_for_products: bool) -> None:
 
