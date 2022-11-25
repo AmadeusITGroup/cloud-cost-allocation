@@ -310,6 +310,12 @@ class CloudCostAllocator(object):
                 cloud_tag_dict[tag_string] = cloud_cost_item_list
             cloud_cost_item_list.append(cloud_cost_item)
 
+        # Create a unique consumer cost item for a given consumer service instance and for a given cloud tag
+        # selector consumer cost item
+        # TODO: Create different consumer cost items for different consumer cost item dimensions
+        new_consumer_cost_items = {}
+        # Key is (consumer service instance id, number of cloud tag selector consumer in input list)
+
         # Process cloud tag dict
         for cloud_cost_item_list in cloud_tag_dict.values():
 
@@ -319,27 +325,26 @@ class CloudCostAllocator(object):
                 eval_globals_dict[re.sub(r'[^a-z0-9_]', '_', key)] = value
 
             # Process consumer cost items
+            selector_nb = 0
             for cloud_tag_selector_consumer_cost_item in cloud_tag_selector_consumer_cost_items:
-
-                # New consumer cost items created for this tag context and for this cloud tag selector
-                # There is a unique consumer cost item for a given consumer service instance
-                # TODO: Create different consumer cost items for different dimensions
-                new_consumer_cost_items = {}  # Key is (consumer) service instance id
+                selector_nb += 1
 
                 # Check if cloud selector match
+                provider_service = cloud_tag_selector_consumer_cost_item.provider_service
+                provider_instance = cloud_tag_selector_consumer_cost_item.provider_instance
+                cloud_tag_selector = cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector
                 match = False
                 try:
                     # Eval is dangerous. Considerations:
                     # - Possibly forbid cloud tag selectors
                     # - Possibly whitelist cloud tag selectors using pattern matching
-                    match = eval(cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector,
-                                 eval_globals_dict, {})
+                    match = eval(cloud_tag_selector, eval_globals_dict, {})
                 except:
                     exception = sys.exc_info()[0]
                     error_key =\
-                        cloud_tag_selector_consumer_cost_item.provider_service + chr(10) +\
-                        cloud_tag_selector_consumer_cost_item.provider_instance + chr(10) +\
-                        cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector + chr(10) +\
+                        provider_service + chr(10) +\
+                        provider_instance + chr(10) +\
+                        cloud_tag_selector + chr(10) +\
                         str(exception)
                     if error_key in evaluation_error_dict:
                         error_count = evaluation_error_dict[error_key]
@@ -355,12 +360,13 @@ class CloudCostAllocator(object):
                         if cloud_cost_item.service != cloud_tag_selector_consumer_cost_item.provider_service:
 
                             # Check if matching service instance was already processed
-                            consumer_cost_item_id =\
+                            consumer_cost_item_key =\
+                                str(selector_nb) + chr(10) +\
                                 ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
-                            if consumer_cost_item_id in new_consumer_cost_items:
+                            if consumer_cost_item_key in new_consumer_cost_items:
 
                                 # Increase existing cost allocation key with the amortized cost of this cloud cost item
-                                new_consumer_cost_item = new_consumer_cost_items[consumer_cost_item_id]
+                                new_consumer_cost_item = new_consumer_cost_items[consumer_cost_item_key]
                                 new_consumer_cost_item.provider_cost_allocation_key +=\
                                     cloud_cost_item.cloud_amortized_cost
 
@@ -376,10 +382,8 @@ class CloudCostAllocator(object):
                                 new_consumer_cost_item.service = cloud_cost_item.service
                                 new_consumer_cost_item.instance = cloud_cost_item.instance
                                 new_consumer_cost_item.tags = cloud_tag_selector_consumer_cost_item.tags.copy()
-                                new_consumer_cost_item.provider_service =\
-                                    cloud_tag_selector_consumer_cost_item.provider_service
-                                new_consumer_cost_item.provider_instance =\
-                                    cloud_tag_selector_consumer_cost_item.provider_instance
+                                new_consumer_cost_item.provider_service = provider_service
+                                new_consumer_cost_item.provider_instance = provider_instance
                                 # TODO: split and dispatch the provider meter values
                                 new_consumer_cost_item.provider_meters =\
                                     cloud_tag_selector_consumer_cost_item.provider_meters.copy()
@@ -389,11 +393,11 @@ class CloudCostAllocator(object):
                                     cloud_tag_selector_consumer_cost_item.provider_tag_selector
                                 new_consumer_cost_item.provider_cost_allocation_key =\
                                     cloud_cost_item.cloud_amortized_cost
-                                new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
-                                    cloud_tag_selector_consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+                                new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
+                                    cloud_tag_selector
 
                                 # Add new consumer cost item
-                                new_consumer_cost_items[consumer_cost_item_id] = new_consumer_cost_item
+                                new_consumer_cost_items[consumer_cost_item_key] = new_consumer_cost_item
                                 cost_items.append(new_consumer_cost_item)
 
         # Log evaluation errors
