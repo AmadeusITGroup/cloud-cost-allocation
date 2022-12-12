@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from io import StringIO
-from logging import info, error
+from logging import debug, info, error
 import re
 import sys
 
@@ -547,9 +547,9 @@ class ServiceInstance(object):
             if not item.is_self_consumption() and item.nb_matching_provider_tag_selectors != 1:
                 is_partition = False
 
-        # For info
+        # For debug
         if not is_partition:
-            info("Provider tag selectors of provider service instance " +
+            debug("Provider tag selectors of provider service instance " +
                  self.service + "." + self.instance +
                  " do not form a partition")
 

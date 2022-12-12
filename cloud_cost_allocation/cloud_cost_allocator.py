@@ -51,14 +51,17 @@ class CloudCostAllocator(object):
         cost_items.extend(new_consumer_cost_items)
 
         # Check all dates are the same
-        date_str = ""
+        reference_date_str = ""
+        different_date_str_list = []
         for cost_item in cost_items:
             if cost_item.date_str:
-                date_str = cost_item.date_str
-                break # We just need to find one as a reference
+                reference_date_str = cost_item.date_str
+                break  # We just need to find one date as a reference
         for cost_item in cost_items:
-            if date_str != cost_item.date_str:
-                error("Found cost items with different dates: " + date_str + " and " + cost_item.date_str)
+            if cost_item.date_str != reference_date_str and cost_item.date_str not in different_date_str_list:
+                different_date_str_list.append(cost_item.date_str)
+        for different_date_str in different_date_str_list:
+            error("Found cost items with different dates: " + reference_date_str + " and " + different_date_str)
 
         # Check all currencies are the same and populate missing ones (currencies are missing for consumer
         # cost items)
@@ -77,6 +80,7 @@ class CloudCostAllocator(object):
 
         # Break cycles
         # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
+        info("Breaking cycles, for date " + reference_date_str)
         if not self.break_cycles(cost_items):
             return False
 
@@ -91,26 +95,26 @@ class CloudCostAllocator(object):
 
             # Compute service amortized cost, ignoring the keys that are using cost, and then
             # set these keys from the computed cost
-            info("Allocating costs, ignoring keys that are costs")
+            info("Allocating costs, ignoring keys that are costs, for date " + reference_date_str)
             self.visit_for_allocation(True, True, False)
             for service_instance in self.service_instances.values():
                 for cost_item in service_instance.cost_items:
                     cost_item.set_cost_as_key(service_instance.cost)
 
             # Allocate amortized costs for services
-            info("Allocating amortized costs for services")
+            info("Allocating amortized costs for services, for date " + reference_date_str)
             self.visit_for_allocation_and_set_allocated_cost(True, False)
 
             # Allocate on-demand costs for services
-            info("Allocating on-demand costs for services")
+            info("Allocating on-demand costs for services, for date " + reference_date_str)
             self.visit_for_allocation_and_set_allocated_cost(False, False)
 
             # Allocate amortized costs for products
-            info("Allocating amortized costs for products")
+            info("Allocating amortized costs for products, for date " + reference_date_str)
             self.visit_for_allocation_and_set_allocated_cost(True, True)
 
             # Allocate on-demand costs for products
-            info("Allocating on-demand costs for products")
+            info("Allocating on-demand costs for products, for date " + reference_date_str)
             self.visit_for_allocation_and_set_allocated_cost(False, True)
 
         except CycleException:
@@ -411,6 +415,11 @@ class CloudCostAllocator(object):
                   "when evaluating ProviderCostAllocationCloudTagSelector '" + cloud_tag_selector +
                   "' of ProviderService '" + provider_service +
                   "' and of ProviderInstance '" + provider_instance + "'")
+
+        # Clean-up for the sake of memory
+        evaluation_error_dict.clear()
+        cloud_tag_dict.clear()
+        new_consumer_cost_items.clear()
 
     def visit_for_allocation_and_set_allocated_cost(self, is_amortized_cost: bool, is_for_products: bool) -> None:
 
