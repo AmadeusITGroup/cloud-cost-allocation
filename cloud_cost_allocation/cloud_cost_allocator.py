@@ -19,13 +19,17 @@ class CloudCostAllocator(object):
 
     __slots__ = (
         'cost_item_factory',  # type: CostItemFactory
-        'config',               # type: ConfigParser
+        'config',             # type: ConfigParser
+        'date_str',           # type: str
+        'currency',           # type: str
         'service_instances',  # type: dict[ServiceInstance]
     )
 
     def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
         self.cost_item_factory = cost_item_factory
         self.config = config
+        self.date_str = ""
+        self.currency = ""
         self.service_instances = {}
 
     def allocate(self, consumer_cost_items: list[ConsumerCostItem], cloud_cost_items: list[CloudCostItem]) -> bool:
@@ -50,37 +54,51 @@ class CloudCostAllocator(object):
         self.create_consumer_cost_items_from_tags(new_consumer_cost_items, cost_items)
         cost_items.extend(new_consumer_cost_items)
 
-        # Check all dates are the same
-        reference_date_str = ""
-        different_date_str_list = []
-        for cost_item in cost_items:
-            if cost_item.date_str:
-                reference_date_str = cost_item.date_str
-                break  # We just need to find one date as a reference
-        for cost_item in cost_items:
-            if cost_item.date_str != reference_date_str and cost_item.date_str not in different_date_str_list:
-                different_date_str_list.append(cost_item.date_str)
-        for different_date_str in different_date_str_list:
-            error("Found cost items with different dates: " + reference_date_str + " and " + different_date_str)
+        # Check dates
+        if self.date_str:
+            cleansed_cost_items = []
+            different_date_str_dict = {}
+            for cost_item in cost_items:
+                if cost_item.date_str == self.date_str:
+                    cleansed_cost_items.append(cost_item)
+                else:
+                    if cost_item.date_str in different_date_str_dict:
+                        different_date_str_dict[cost_item.date_str] = different_date_str_dict[cost_item.date_str] + 1
+                    else:
+                        different_date_str_dict[cost_item.date_str] = 1
+            for date_str, nb_cost_items in different_date_str_dict.items():
+                error("Skipped " + str(nb_cost_items) +
+                      " cost items having dates " + date_str +
+                      " instead of " + self.date_str)
+            cost_items = cleansed_cost_items
 
-        # Check all currencies are the same and populate missing ones (currencies are missing for consumer
-        # cost items)
-        currency = ""
-        for cost_item in cost_items:
-            if cost_item.currency:
-                currency = cost_item.currency
-                break # We just need to find one as a reference
-        for cost_item in cost_items:
-            if not cost_item.currency:
-                cost_item.currency = currency
-            else:
-                if currency != cost_item.currency:
-                    error("Found cost items with different currencies: " + currency + " and " + cost_item.currency)
-                    return False
+        # Check currencies
+        if not self.currency:
+            error("CloudCostAllocator.currency must be set")
+            return False
+        else:
+            cleansed_cost_items = []
+            different_currency_dict = {}
+            for cost_item in cost_items:
+                if not cost_item.currency:
+                    cost_item.currency = self.currency
+                    cleansed_cost_items.append(cost_item)
+                elif cost_item.currency == self.currency:
+                    cleansed_cost_items.append(cost_item)
+                else:
+                    if cost_item.currency in different_currency_dict:
+                        different_currency_dict[cost_item.currency] = different_currency_dict[cost_item.currency] + 1
+                    else:
+                        different_currency_dict[cost_item.currency] = 1
+            for currency, nb_cost_items in different_currency_dict.items():
+                error("Skipped " + str(nb_cost_items) +
+                      " cost items having currencies " + currency +
+                      " instead of " + self.currency)
+            cost_items = cleansed_cost_items
 
         # Break cycles
         # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
-        info("Breaking cycles, for date " + reference_date_str)
+        info("Breaking cycles, for date " + self.date_str)
         if not self.break_cycles(cost_items):
             return False
 
@@ -95,26 +113,26 @@ class CloudCostAllocator(object):
 
             # Compute service amortized cost, ignoring the keys that are using cost, and then
             # set these keys from the computed cost
-            info("Allocating costs, ignoring keys that are costs, for date " + reference_date_str)
+            info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
             self.visit_for_allocation(True, True, False)
             for service_instance in self.service_instances.values():
                 for cost_item in service_instance.cost_items:
                     cost_item.set_cost_as_key(service_instance.cost)
 
             # Allocate amortized costs for services
-            info("Allocating amortized costs for services, for date " + reference_date_str)
+            info("Allocating amortized costs for services, for date " + self.date_str)
             self.visit_for_allocation_and_set_allocated_cost(True, False)
 
             # Allocate on-demand costs for services
-            info("Allocating on-demand costs for services, for date " + reference_date_str)
+            info("Allocating on-demand costs for services, for date " + self.date_str)
             self.visit_for_allocation_and_set_allocated_cost(False, False)
 
             # Allocate amortized costs for products
-            info("Allocating amortized costs for products, for date " + reference_date_str)
+            info("Allocating amortized costs for products, for date " + self.date_str)
             self.visit_for_allocation_and_set_allocated_cost(True, True)
 
             # Allocate on-demand costs for products
-            info("Allocating on-demand costs for products, for date " + reference_date_str)
+            info("Allocating on-demand costs for products, for date " + self.date_str)
             self.visit_for_allocation_and_set_allocated_cost(False, True)
 
         except CycleException:

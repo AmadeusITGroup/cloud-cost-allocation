@@ -139,6 +139,7 @@ class Test(unittest.TestCase):
 
         # Allocate costs
         cloud_cost_allocator = CloudCostAllocator(cost_item_factory, config)
+        cloud_cost_allocator.currency = "EUR"
         assert_message = test + ": cost allocation failed"
         self.assertTrue(cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items), assert_message)
 
