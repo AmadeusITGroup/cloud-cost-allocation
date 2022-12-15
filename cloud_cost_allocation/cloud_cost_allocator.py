@@ -34,6 +34,14 @@ class CloudCostAllocator(object):
 
     def allocate(self, consumer_cost_items: list[ConsumerCostItem], cloud_cost_items: list[CloudCostItem]) -> bool:
 
+        # Date and currency must be defined
+        if not self.date_str:
+            error("CloudCostAllocator.date_str must be set")
+            return False
+        if not self.currency:
+            error("CloudCostAllocator.currency must be set")
+            return False
+
         # Initiate cost items with cloud cost items
         cost_items = []
         cost_items.extend(cloud_cost_items)
@@ -55,46 +63,41 @@ class CloudCostAllocator(object):
         cost_items.extend(new_consumer_cost_items)
 
         # Check dates
-        if self.date_str:
-            cleansed_cost_items = []
-            different_date_str_dict = {}
-            for cost_item in cost_items:
-                if cost_item.date_str == self.date_str:
-                    cleansed_cost_items.append(cost_item)
+        cleansed_cost_items = []
+        different_date_str_dict = {}
+        for cost_item in cost_items:
+            if cost_item.date_str == self.date_str:
+                cleansed_cost_items.append(cost_item)
+            else:
+                if cost_item.date_str in different_date_str_dict:
+                    different_date_str_dict[cost_item.date_str] = different_date_str_dict[cost_item.date_str] + 1
                 else:
-                    if cost_item.date_str in different_date_str_dict:
-                        different_date_str_dict[cost_item.date_str] = different_date_str_dict[cost_item.date_str] + 1
-                    else:
-                        different_date_str_dict[cost_item.date_str] = 1
-            for date_str, nb_cost_items in different_date_str_dict.items():
-                error("Skipped " + str(nb_cost_items) +
-                      " cost items having dates " + date_str +
-                      " instead of " + self.date_str)
-            cost_items = cleansed_cost_items
+                    different_date_str_dict[cost_item.date_str] = 1
+        for date_str, nb_cost_items in different_date_str_dict.items():
+            error("Skipped " + str(nb_cost_items) +
+                  " cost items having dates " + date_str +
+                  " instead of " + self.date_str)
+        cost_items = cleansed_cost_items
 
         # Check currencies
-        if not self.currency:
-            error("CloudCostAllocator.currency must be set")
-            return False
-        else:
-            cleansed_cost_items = []
-            different_currency_dict = {}
-            for cost_item in cost_items:
-                if not cost_item.currency:
-                    cost_item.currency = self.currency
-                    cleansed_cost_items.append(cost_item)
-                elif cost_item.currency == self.currency:
-                    cleansed_cost_items.append(cost_item)
+        cleansed_cost_items = []
+        different_currency_dict = {}
+        for cost_item in cost_items:
+            if not cost_item.currency:
+                cost_item.currency = self.currency
+                cleansed_cost_items.append(cost_item)
+            elif cost_item.currency == self.currency:
+                cleansed_cost_items.append(cost_item)
+            else:
+                if cost_item.currency in different_currency_dict:
+                    different_currency_dict[cost_item.currency] = different_currency_dict[cost_item.currency] + 1
                 else:
-                    if cost_item.currency in different_currency_dict:
-                        different_currency_dict[cost_item.currency] = different_currency_dict[cost_item.currency] + 1
-                    else:
-                        different_currency_dict[cost_item.currency] = 1
-            for currency, nb_cost_items in different_currency_dict.items():
-                error("Skipped " + str(nb_cost_items) +
-                      " cost items having currencies " + currency +
-                      " instead of " + self.currency)
-            cost_items = cleansed_cost_items
+                    different_currency_dict[cost_item.currency] = 1
+        for currency, nb_cost_items in different_currency_dict.items():
+            error("Skipped " + str(nb_cost_items) +
+                  " cost items having currencies " + currency +
+                  " instead of " + self.currency)
+        cost_items = cleansed_cost_items
 
         # Break cycles
         # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
