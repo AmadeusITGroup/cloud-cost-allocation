@@ -6,3 +6,4 @@ Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,Reserv
 03/10/2022,"""service"": ""Application3"",""trx"": ""z""",600,EUR,Usage,ResourceId3z,
 03/10/2022,"""service"": ""Application3""",140,EUR,Usage,ResourceId3xyz,
 03/10/2022,"""service"": ""Application4""",110,EUR,Usage,ResourceId4,
+03/10/2022,"""service"": ""Application5""",7,EUR,Usage,ResourceId5,

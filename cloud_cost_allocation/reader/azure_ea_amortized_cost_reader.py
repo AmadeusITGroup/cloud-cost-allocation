@@ -1,6 +1,5 @@
 # coding: utf-8
 
-from configparser import ConfigParser
 from datetime import date
 from logging import error
 import re
@@ -12,15 +11,14 @@ from cloud_cost_allocation.utils import utils
 
 class AzureEaAmortizedCostReader(GenericReader):
     """
-    Reads Azure Enterprise Agreement amortized cloud costs.
-
-    Note: The date field in Azure cost exports is in MM/DD/YYYY format
+    Reads Azure Enterprise Agreement amortized cloud costs
     """
-    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
-        super().__init__(cost_item_factory, config)
+    def __init__(self, cost_item_factory: CostItemFactory):
+        super().__init__(cost_item_factory)
 
     def read_item(self, line) -> CloudCostItem:
-        # Initiate cloud cost item
+
+        # Create cloud cost item
         cloud_cost_item = self.cost_item_factory.create_cloud_cost_item()
 
         # Set date
@@ -29,17 +27,18 @@ class AzureEaAmortizedCostReader(GenericReader):
             error("Expected Azure date format MM/DD/YYYY, but got: " + azure_date_str)
             return None
         azure_date = date(int(azure_date_str[6:]), int(azure_date_str[:2]), int(azure_date_str[3:5]))
-        cloud_cost_item.date_str = azure_date.strftime(self.config['General']['DateFormat'])
+        config = self.cost_item_factory.config
+        cloud_cost_item.date_str = azure_date.strftime(config.date_format)
 
-        # Set amortized cost
+        # Set amortized cost (amount with index 0)
         cost_in_billing_currency = line["CostInBillingCurrency"]
         if utils.is_float(cost_in_billing_currency):
-            cloud_cost_item.cloud_amortized_cost = float(cost_in_billing_currency)
+            cloud_cost_item.amounts[0] = float(cost_in_billing_currency)
         else:
             error("CostInBillingCurrency cannot be parsed in line %s", line)
             return None
 
-        # Compute and set on-demand cost
+        # Compute and set on-demand cost (amount with index 1)
         # https://docs.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
         if line["ReservationId"]:
             if line["ChargeType"] == "UnusedReservation":
@@ -48,13 +47,13 @@ class AzureEaAmortizedCostReader(GenericReader):
                 quantity = line["Quantity"]
                 unit_price = line["UnitPrice"]
                 if utils.is_float(quantity) and utils.is_float(unit_price):
-                    cloud_cost_item.cloud_on_demand_cost = float(quantity) * float(unit_price)
+                    cloud_cost_item.amounts[1] = float(quantity) * float(unit_price)
                 else:
                     error("Quantity or UnitPrice cannot be parsed in line %s", line)
-                    cloud_cost_item.cloud_on_demand_cost = 0.0  # return None?
+                    cloud_cost_item.amounts[1] = 0.0  # return None?
 
-        else:
-            cloud_cost_item.cloud_on_demand_cost = cloud_cost_item.cloud_amortized_cost
+        else:  # No reservation: on-demand cost is same as amortized cost
+            cloud_cost_item.amounts[1] = cloud_cost_item.amounts[0]
 
         # Set currency
         cloud_cost_item.currency = line["BillingCurrencyCode"]
@@ -71,27 +70,30 @@ class AzureEaAmortizedCostReader(GenericReader):
                     error("Unexpected tag format in cost stream: '" + tag + "'")
 
         # Process unused reservation
+        config = self.cost_item_factory.config
         if line['ChargeType'] == 'UnusedReservation':
-            cloud_cost_item.service = self.config['AzureEaAmortizedCost']['UnusedReservationService']
-            if 'UnusedReservationInstance' in self.config['AzureEaAmortizedCost']:
-                cloud_cost_item.instance = self.config['AzureEaAmortizedCost']['UnusedReservationInstance']
+            cloud_cost_item.service = config.config['AzureEaAmortizedCost']['UnusedReservationService']
+            if 'UnusedReservationInstance' in config.config['AzureEaAmortizedCost']:
+                cloud_cost_item.instance = config.config['AzureEaAmortizedCost']['UnusedReservationInstance']
             else:
                 cloud_cost_item.instance = cloud_cost_item.service
-            if 'Dimensions' in self.config['General']:
-                for dimension in self.config['General']['Dimensions'].split(','):
-                    unused_reservation_dimension = 'UnusedReservation' + dimension.strip()
-                    if unused_reservation_dimension in self.config['AzureEaAmortizedCost']:
-                        cloud_cost_item.dimensions[dimension] =\
-                            self.config['AzureEaAmortizedCost'][unused_reservation_dimension]
+            for dimension in config.dimensions:
+                unused_reservation_dimension = 'UnusedReservation' + dimension
+                if unused_reservation_dimension in config.config['AzureEaAmortizedCost']:
+                    cloud_cost_item.dimensions[dimension] =\
+                        config.config['AzureEaAmortizedCost'][unused_reservation_dimension]
 
-        else:
+        else:  # Not an unused reservation
+
             # Fill cost item from tags
             self.fill_from_tags(cloud_cost_item)
-            # Set default values for service + instance if needed
+
+            # Set default service
             if not cloud_cost_item.service:
-                cloud_cost_item.service = self.config['General']['DefaultService'].strip()
+                cloud_cost_item.service = config.default_service
+
+            # Set default instance
             if not cloud_cost_item.instance:
-                # Set the default value
                 cloud_cost_item.instance = cloud_cost_item.service
 
         return cloud_cost_item

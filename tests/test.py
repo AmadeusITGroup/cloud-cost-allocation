@@ -11,6 +11,7 @@ import unittest
 # Cloud cost allocation import
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from cloud_cost_allocation.config import Config
 from cloud_cost_allocation.cloud_cost_allocator import CloudCostAllocator
 from cloud_cost_allocation.reader.azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
 from cloud_cost_allocation.reader.csv_cost_allocation_keys_reader import CSV_CostAllocationKeysReader
@@ -32,10 +33,11 @@ class TestCloudCostItem(CloudCostItem):
         super().__init__()
         self.cloud = ""
 
+
 class TestAzureEaAmortizedCostReader(AzureEaAmortizedCostReader):
 
-    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
-        super().__init__(cost_item_factory, config)
+    def __init__(self, cost_item_factory: CostItemFactory):
+        super().__init__(cost_item_factory)
 
     def read_item(self, line) -> TestCloudCostItem:
         cost_item = super().read_item(line)
@@ -47,6 +49,7 @@ class TestAzureEaAmortizedCostReader(AzureEaAmortizedCostReader):
             cost_item.tags['cloud_resource_id'] = cloud_resource_id.lower()
 
         return cost_item
+
 
 class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
 
@@ -75,10 +78,16 @@ class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
 
         return data
 
+
 class TestCostItemFactory(CostItemFactory):
 
+    def __init__(self, config: Config):
+        super().__init__(config)
+
     def create_cloud_cost_item(self) -> CloudCostItem:
-        return TestCloudCostItem()
+        test_cloud_cost_item = TestCloudCostItem()
+        test_cloud_cost_item.initialize(self.config)
+        return test_cloud_cost_item
 
 
 class Test(unittest.TestCase):
@@ -118,27 +127,28 @@ class Test(unittest.TestCase):
         config_filename = directory + "/" + test + "/" + test + ".cfg"
 
         # Read config
-        config = ConfigParser()
-        config.read(config_filename)
+        file_config = ConfigParser()
+        file_config.read(config_filename)
+        config = Config(file_config)
 
         # Create cost item factory
-        cost_item_factory = TestCostItemFactory()
+        cost_item_factory = TestCostItemFactory(config)
 
         # Read costs
         # TODO: when different readers are supported, select the reader and the cloud from the config
         cloud_cost_items = []
-        cloud_cost_reader = TestAzureEaAmortizedCostReader(cost_item_factory, config)
+        cloud_cost_reader = TestAzureEaAmortizedCostReader(cost_item_factory)
         costs_filename = directory + "/" + test + "/" + test + "_cloud_cost.csv"
         read_csv_file(costs_filename, cloud_cost_reader, cloud_cost_items)
 
         # Read keys
         consumer_cost_items = []
-        cost_allocation_keys_reader = CSV_CostAllocationKeysReader(cost_item_factory, config)
+        cost_allocation_keys_reader = CSV_CostAllocationKeysReader(cost_item_factory)
         allocation_keys_filename = directory + "/" + test + "/" + test + "_cost_allocation_keys.csv"
         read_csv_file(allocation_keys_filename, cost_allocation_keys_reader, consumer_cost_items)
 
         # Allocate costs
-        cloud_cost_allocator = CloudCostAllocator(cost_item_factory, config)
+        cloud_cost_allocator = CloudCostAllocator(cost_item_factory)
         cloud_cost_allocator.date_str = consumer_cost_items[0].date_str
         cloud_cost_allocator.currency = "EUR"
         assert_message = test + ": cost allocation failed"

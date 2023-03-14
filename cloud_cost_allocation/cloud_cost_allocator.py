@@ -1,7 +1,6 @@
 # coding: utf-8
 
 # Standard imports
-from configparser import ConfigParser
 from logging import info, error
 import re
 import sys
@@ -14,20 +13,18 @@ from cloud_cost_allocation.exceptions import CycleException, BreakableCycleExcep
 
 class CloudCostAllocator(object):
     """
-    Allocates cloud costs from a cloud cost reader and cost allocation key readers
+    Allocates cloud costs
     """
 
     __slots__ = (
         'cost_item_factory',  # type: CostItemFactory
-        'config',             # type: ConfigParser
         'date_str',           # type: str
         'currency',           # type: str
         'service_instances',  # type: dict[ServiceInstance]
     )
 
-    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
+    def __init__(self, cost_item_factory: CostItemFactory):
         self.cost_item_factory = cost_item_factory
-        self.config = config
         self.date_str = ""
         self.currency = ""
         self.service_instances = {}
@@ -39,7 +36,7 @@ class CloudCostAllocator(object):
             error("CloudCostAllocator.date_str must be set")
             return False
         if not self.currency:
-            error("CloudCostAllocator.currency must be set")
+            error("CloudCostAllocator.currency must be set, for date " + self.date_str)
             return False
 
         # Initiate cost items with cloud cost items
@@ -47,7 +44,7 @@ class CloudCostAllocator(object):
         cost_items.extend(cloud_cost_items)
 
         # Process cloud tag selectors
-        info("Processing cloud tag selectors")
+        info("Processing cloud tag selectors, for date" + self.date_str)
         cloud_tag_selector_consumer_cost_items = []
         for consumer_cost_item in consumer_cost_items:
             if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
@@ -57,7 +54,7 @@ class CloudCostAllocator(object):
         self.process_cloud_tag_selectors(cost_items, cloud_tag_selector_consumer_cost_items, cloud_cost_items)
 
         # Create and add cloud consumer cost item from tags
-        info("Creating consumer cost items from tags")
+        info("Creating consumer cost items from tags, for date " + self.date_str)
         new_consumer_cost_items = []
         self.create_consumer_cost_items_from_tags(new_consumer_cost_items, cost_items)
         cost_items.extend(new_consumer_cost_items)
@@ -96,7 +93,8 @@ class CloudCostAllocator(object):
         for currency, nb_cost_items in different_currency_dict.items():
             error("Skipped " + str(nb_cost_items) +
                   " cost items having currencies " + currency +
-                  " instead of " + self.currency)
+                  " instead of " + self.currency +
+                  ", for date " + self.date_str)
         cost_items = cleansed_cost_items
 
         # Break cycles
@@ -105,39 +103,57 @@ class CloudCostAllocator(object):
         if not self.break_cycles(cost_items):
             return False
 
+        # Initialize instances and set cost item links
+        self.service_instances = {}
+        for cost_item in cost_items:
+            if not cost_item.is_consumer_cost_item_removed_for_cycle():
+                cost_item.set_instance_links(self)
+
         # Protect against unexpected cycles
         try:
 
-            # Initialize instances and set cost item links
-            self.service_instances = {}
-            for cost_item in cost_items:
-                if not cost_item.is_consumer_cost_item_removed_for_cycle():
-                    cost_item.set_instance_links(self)
-
             # Compute service amortized cost, ignoring the keys that are using cost, and then
-            # set these keys from the computed cost
+            # set these keys from the allocated cost
+            amounts = ['AmortizedCost', 'OnDemandCost']
+            amount_to_allocation_key_indexes = {}
+            config = self.cost_item_factory.config
+            if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
+                return False
             info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
-            self.visit_for_allocation(True, True, False)
+            self.visit_for_allocation(True, amount_to_allocation_key_indexes)
             for service_instance in self.service_instances.values():
+                service_instance_amortized_cost = 0.0
                 for cost_item in service_instance.cost_items:
-                    cost_item.set_cost_as_key(service_instance.cost)
+                    if not cost_item.is_self_consumption():
+                        service_instance_amortized_cost += cost_item.amounts[0]
+                for cost_item in service_instance.cost_items:
+                    cost_item.set_cost_as_key(service_instance_amortized_cost)
 
             # Allocate amortized costs for services
-            info("Allocating amortized costs for services, for date " + self.date_str)
-            self.visit_for_allocation_and_set_allocated_cost(True, False)
+            info("Allocating costs, for date " + self.date_str)
+            self.visit_for_allocation(False, amount_to_allocation_key_indexes)
 
-            # Allocate on-demand costs for services
-            info("Allocating on-demand costs for services, for date " + self.date_str)
-            self.visit_for_allocation_and_set_allocated_cost(False, False)
+        except CycleException:
+            return False
 
-            # Allocate amortized costs for products
-            info("Allocating amortized costs for products, for date " + self.date_str)
-            self.visit_for_allocation_and_set_allocated_cost(True, True)
+        return True
 
-            # Allocate on-demand costs for products
-            info("Allocating on-demand costs for products, for date " + self.date_str)
-            self.visit_for_allocation_and_set_allocated_cost(False, True)
+    def allocate_further_amounts(self, cost_items: list[CostItem], amounts: list[str]) -> bool:
 
+        # Build amount allocation key indexes dictionary
+        amount_to_allocation_key_indexes = {}
+        if not self.cost_item_factory.config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes,
+                                                                                    amounts):
+            return False
+
+        # Initialize instances and set cost item links
+        self.service_instances = {}
+        for cost_item in cost_items:
+            cost_item.set_instance_links(self)
+
+        # Visit, by protecting against unexpected cycles
+        try:
+            self.visit_for_allocation(False, amount_to_allocation_key_indexes)
         except CycleException:
             return False
 
@@ -146,22 +162,23 @@ class CloudCostAllocator(object):
     def break_cycles(self, cost_items: list[CostItem]) -> bool:
 
         # Build service precedence list
+        config = self.cost_item_factory.config.config
         service_precedence_list = []
-        if 'Cycles' in self.config and 'ServicePrecedenceList' in self.config['Cycles']:
-            for service in self.config['Cycles']['ServicePrecedenceList'].split(","):
+        if 'Cycles' in config and 'ServicePrecedenceList' in config['Cycles']:
+            for service in config['Cycles']['ServicePrecedenceList'].split(","):
                 service_precedence_list.append(service.strip().lower())
 
         # Get max cycle breaks
         max_breaks = 10  # Default value
-        if 'Cycles' in self.config and 'MaxBreaks' in self.config['Cycles']:
-            max_breaks = int(self.config['Cycles']['MaxBreaks'])
+        if 'Cycles' in config and 'MaxBreaks' in config['Cycles']:
+            max_breaks = int(config['Cycles']['MaxBreaks'])
 
         # Break cycles
         nb_breaks = 0
         while nb_breaks < max_breaks:
 
             # Log
-            info("Detecting and breaking cycles: pass " + str(nb_breaks))
+            info("Detecting and breaking cycles, for date " + self.date_str + ": pass " + str(nb_breaks))
 
             # Initialize instances and set cost item links
             self.service_instances = {}
@@ -194,56 +211,51 @@ class CloudCostAllocator(object):
         if nb_breaks < max_breaks:
             return True
         else:
-            error("Max number of cost allocation cycle breaks was reached")
+            error("Max number of cost allocation cycle breaks was reached, for date " + self.date_str)
             return False
 
     def create_consumer_cost_items_from_tags(self,
                                              new_consumer_cost_items: list[ConsumerCostItem],
                                              cost_items: list[CostItem]) -> None:
 
-        # Check if consumer tag is used and process cost items
-        if 'ConsumerService' in self.config['TagKey'] or 'Product' in self.config['TagKey']:
+        # If consumer tag or product tag is used, process cost items
+        config = self.cost_item_factory.config
+        if config.consumer_service_tag_keys or config.product_tag_keys:
             for cost_item in cost_items:
 
                 # Check consumer service
                 consumer_service = ""
                 actual_consumer_service_tag_key = ""
-                for consumer_service_tag_key in self.config['TagKey']['ConsumerService'].split(","):
-                    consumer_service_tag_key = consumer_service_tag_key.strip()
+                for consumer_service_tag_key in config.consumer_service_tag_keys:
                     if consumer_service_tag_key in cost_item.tags:
                         actual_consumer_service_tag_key = consumer_service_tag_key
                         consumer_service = cost_item.tags[consumer_service_tag_key].strip().lower()
                         break
 
                 # Check if consumer service must be ignored
-                if 'ConsumerServiceIgnoredValue' in self.config['TagKey']:
-                    for consumer_service_ignored_value in self.config['TagKey']['ConsumerServiceIgnoredValue'].split(","):
-                        if consumer_service == consumer_service_ignored_value.strip().lower():
-                            consumer_service = ""
+                for consumer_service_ignored_value in config.consumer_service_ignored_tag_values:
+                    if consumer_service == consumer_service_ignored_value.strip().lower():
+                        consumer_service = ""
 
                 # Check consumer instance
                 consumer_instance = ""
                 actual_consumer_instance_tag_key = ""
-                if 'ConsumerInstance' in self.config['TagKey']:
-                    for consumer_instance_tag_key in self.config['TagKey']['ConsumerInstance'].split(","):
-                        consumer_instance_tag_key = consumer_instance_tag_key.strip()
-                        if consumer_instance_tag_key in cost_item.tags:
-                            actual_consumer_instance_tag_key = consumer_instance_tag_key
-                            consumer_instance = cost_item.tags[consumer_instance_tag_key].strip().lower()
-                            break
+                for consumer_instance_tag_key in config.consumer_instance_tag_keys:
+                    if consumer_instance_tag_key in cost_item.tags:
+                        actual_consumer_instance_tag_key = consumer_instance_tag_key
+                        consumer_instance = cost_item.tags[consumer_instance_tag_key].strip().lower()
+                        break
 
                 # Check product
                 # TODO: product dimension
                 # TODO: product ignored value
                 product = ""
                 actual_product_tag_key = ""
-                if 'Product' in self.config['TagKey']:
-                    for product_tag_key in self.config['TagKey']['Product'].split(","):
-                        product_tag_key = product_tag_key.strip()
-                        if product_tag_key in cost_item.tags:
-                            actual_product_tag_key = product_tag_key
-                            product = cost_item.tags[product_tag_key].strip().lower()
-                            break
+                for product_tag_key in config.product_tag_keys:
+                    if product_tag_key in cost_item.tags:
+                        actual_product_tag_key = product_tag_key
+                        product = cost_item.tags[product_tag_key].strip().lower()
+                        break
 
                 # Create consumer cost item if there is a consumer service or product
                 if consumer_service or product:
@@ -288,19 +300,16 @@ class CloudCostAllocator(object):
                             "'" + actual_product_tag_variable + "' in globals() and " + \
                             actual_product_tag_variable + "=='" + product + "'"
                     new_consumer_cost_item.provider_cost_allocation_type = "ConsumerTag"
-                    new_consumer_cost_item.provider_cost_allocation_key = 1.0
+                    new_consumer_cost_item.allocation_keys[0] = 1.0
                     new_consumer_cost_item.product = product
 
                     # Add consumer dimensions
-                    if 'Dimensions' in self.config['General']:
-                        for dimension in self.config['General']['Dimensions'].split(','):
-                            consumer_dimension = 'Consumer' + dimension.strip()
-                            if consumer_dimension in self.config['TagKey']:
-                                for consumer_dimension_tag_key in self.config['TagKey'][consumer_dimension].split(","):
-                                    if consumer_dimension_tag_key in cost_item.tags:
-                                        new_consumer_cost_item.dimensions[dimension] = \
-                                            cost_item.tags[consumer_dimension_tag_key].strip().lower()
-                                        break
+                    for dimension, consumer_dimension_tag_keys in config.consumer_dimension_tag_keys.items():
+                        for consumer_dimension_tag_key in consumer_dimension_tag_keys:
+                            if consumer_dimension_tag_key in cost_item.tags:
+                                new_consumer_cost_item.dimensions[dimension] = \
+                                    cost_item.tags[consumer_dimension_tag_key].strip().lower()
+                                break
 
                     # Add cloud consumer cost item
                     new_consumer_cost_items.append(new_consumer_cost_item)
@@ -392,8 +401,7 @@ class CloudCostAllocator(object):
 
                                 # Increase existing cost allocation key with the amortized cost of this cloud cost item
                                 new_consumer_cost_item = new_consumer_cost_items[consumer_cost_item_key]
-                                new_consumer_cost_item.provider_cost_allocation_key +=\
-                                    cloud_cost_item.cloud_amortized_cost
+                                new_consumer_cost_item.allocation_keys[0] += cloud_cost_item.amounts[0]
 
                             else:
                                 # Create new consumer cost item for this instance
@@ -416,8 +424,7 @@ class CloudCostAllocator(object):
                                     cloud_tag_selector_consumer_cost_item.provider_cost_allocation_type
                                 new_consumer_cost_item.provider_tag_selector =\
                                     cloud_tag_selector_consumer_cost_item.provider_tag_selector
-                                new_consumer_cost_item.provider_cost_allocation_key =\
-                                    cloud_cost_item.cloud_amortized_cost
+                                new_consumer_cost_item.allocation_keys[0] = cloud_cost_item.amounts[0]
                                 new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
                                     cloud_tag_selector
 
@@ -435,29 +442,19 @@ class CloudCostAllocator(object):
             error("Caught exception '" + exception + "' " + str(error_count) + " times " +
                   "when evaluating ProviderCostAllocationCloudTagSelector '" + cloud_tag_selector +
                   "' of ProviderService '" + provider_service +
-                  "' and of ProviderInstance '" + provider_instance + "'")
+                  "' and of ProviderInstance '" + provider_instance + "'" +
+                  ", for date " + self.date_str)
 
         # Clean-up for the sake of memory
         evaluation_error_dict.clear()
         cloud_tag_dict.clear()
         new_consumer_cost_items.clear()
 
-    def visit_for_allocation_and_set_allocated_cost(self, is_amortized_cost: bool, is_for_products: bool) -> None:
-
-        # Visit, using cost keys, which have been previously computed
-        self.visit_for_allocation(False, is_amortized_cost, is_for_products)
-
-        # Set allocated costs
+    def visit_for_allocation(self, ignore_cost_as_key: bool, amount_allocation_to_key_indexes: dict[int]) -> None:
         for service_instance in self.service_instances.values():
-            for cost_item in service_instance.cost_items:
-                cost_item.set_allocated_cost(is_amortized_cost, is_for_products)
-
-    def visit_for_allocation(self, ignore_cost_as_key: bool, is_amortized_cost: bool, is_for_products: bool) -> None:
-        for service_instance in self.service_instances.values():
-            service_instance.reset_visit_for_allocation(is_for_products)
+            service_instance.reset_visit()
         for service_instance in self.service_instances.values():
             visited_service_instance_list = []
             service_instance.visit_for_allocation(visited_service_instance_list,
                                                   ignore_cost_as_key,
-                                                  is_amortized_cost,
-                                                  is_for_products)
+                                                  amount_allocation_to_key_indexes)

@@ -10,8 +10,8 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as readme_file:
 # Setup
 setup(
     name='cloud-cost-allocation',
-    version='0.2.6',
-    description='Python library for shared, hierarchical cost allocation based on user-defined metrics.',
+    version='1.0.0',
+    description='Python library for shared, hierarchical cost allocation based on user-defined usage metrics.',
     long_description=readme,
     long_description_content_type='text/markdown',
     packages=['cloud_cost_allocation',

@@ -7,6 +7,7 @@ from optparse import OptionParser
 from sys import exit
 
 # Cloud cost allocation import
+from cloud_cost_allocation.config import Config
 from cloud_cost_allocation.cloud_cost_allocator import CloudCostAllocator
 from cloud_cost_allocation.cost_items import CostItemFactory
 from cloud_cost_allocation.reader.azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
@@ -45,11 +46,12 @@ def main():
         exit(255)
 
     # Read config
-    config = ConfigParser()
-    config.read(options.config)
+    file_config = ConfigParser()
+    file_config.read(options.config)
+    config = Config(file_config)
 
     # Create cost item factory
-    cost_item_factory = CostItemFactory()
+    cost_item_factory = CostItemFactory(config)
 
     # Read costs
     cloud_cost_items = []
@@ -58,7 +60,7 @@ def main():
         cost_type = cost_list[0]
         cost_file = cost_list[1]
         if cost_type == 'AzEaAmo':
-            cloud_cost_reader = AzureEaAmortizedCostReader(cost_item_factory, config)
+            cloud_cost_reader = AzureEaAmortizedCostReader(cost_item_factory)
             info("Reading Azure Enterprise Agreement amortized costs: " + cost_file)
             read_csv(cost_file, cloud_cost_reader, cloud_cost_items)
         else:
@@ -67,13 +69,13 @@ def main():
 
     # Read keys
     consumer_cost_items = []
-    cost_allocation_reader = CSV_CostAllocationKeysReader(cost_item_factory, config)
+    cost_allocation_reader = CSV_CostAllocationKeysReader(cost_item_factory)
     for key in options.keys:
         info("Reading cost allocation keys: " + key)
         read_csv(key, cost_allocation_reader, consumer_cost_items)
 
     # Allocate costs
-    cloud_cost_allocator = CloudCostAllocator(cost_item_factory, config)
+    cloud_cost_allocator = CloudCostAllocator(cost_item_factory)
     if not cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items):
         error("Cost allocation failed")
         exit(3)
