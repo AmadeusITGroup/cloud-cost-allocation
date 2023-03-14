@@ -19,6 +19,10 @@ class CSV_AllocatedCostWriter(GenericWriter):
         super().__init__(service_instances, config)
 
     def get_headers(self) -> list[str]:
+
+        # Column order is historical
+
+        # Initialize
         headers = [
             'Date',
             'Service',
@@ -35,30 +39,28 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'ProviderCostAllocationCloudTagSelector',
             'Product',
             'ProductAmortizedCost',
-            'ProductOnDemandCost'
-        ]
+            'ProductOnDemandCost',
+            ]
 
         # Add dimensions
-        if 'Dimensions' in self.config['General']:
-            for dimension in self.config['General']['Dimensions'].split(","):
-                headers.extend([dimension.strip()])
+        headers.extend(self.config.dimensions)
 
         # Add provider meters
-        if 'NumberOfProviderMeters' in self.config['General']:
-            for i in range(1, int(self.config['General']['NumberOfProviderMeters']) + 1):
+        if self.config.nb_provider_meters:
+            for i in range(1, self.config.nb_provider_meters + 1):
                 headers.extend(['ProviderMeterName%s' % i])
                 headers.extend(['ProviderMeterUnit%s' % i])
                 headers.extend(['ProviderMeterValue%s' % i])
 
         # Add product dimensions
-        if 'NumberOfProductDimensions' in self.config['General']:
-            for i in range(1, int(self.config['General']['NumberOfProductDimensions']) + 1):
+        if self.config.nb_product_dimensions:
+            for i in range(1, self.config.nb_product_dimensions + 1):
                 headers.extend(['ProductDimensionName%s' % i])
                 headers.extend(['ProductDimensionElement%s' % i])
 
         # Add product meters
-        if 'NumberOfProductMeters' in self.config['General']:
-            for i in range(1, int(self.config['General']['NumberOfProductMeters']) + 1):
+        if self.config.nb_product_meters:
+            for i in range(1, self.config.nb_product_meters + 1):
                 if i == 1:
                     headers.extend(['ProductMeterName'])
                     headers.extend(['ProductMeterUnit'])
@@ -68,10 +70,23 @@ class CSV_AllocatedCostWriter(GenericWriter):
                     headers.extend(['ProductMeterUnit%s' % i])
                     headers.extend(['ProductMeterValue%s' % i])
 
+        # Add further amounts and product amounts
+        if self.config.nb_amounts > 2:
+            headers.extend(self.config.amounts[2:])
+            for amount in self.config.amounts[2:]:
+                headers.extend(['Product' + amount])
+
+        # Add further allocation keys
+        if self.config.nb_allocation_keys > 2:
+            headers.extend(self.config.allocation_keys[1:])
+
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
+
+        # Initialize
         data = {}
+
         # Add basic cost item data
         data['Date'] = cost_item.date_str
         data['Service'] = cost_item.service
@@ -80,60 +95,90 @@ class CSV_AllocatedCostWriter(GenericWriter):
         for key, value in cost_item.tags.items():
             tags_str.write(key + ":" + value + ",")
         data['Tags'] = tags_str.getvalue()
-        data['AmortizedCost'] = str(cost_item.amortized_cost)
-        data['OnDemandCost'] = str(cost_item.on_demand_cost)
+        data['AmortizedCost'] = str(cost_item.amounts[0])
+        data['OnDemandCost'] = str(cost_item.amounts[1])
         data['Currency'] = cost_item.currency
 
         # Add dimensions
         for dimension_key, dimension_value in cost_item.dimensions.items():
             data[dimension_key] = dimension_value
 
+        # Add amounts
+        index = 0
+        for amount in self.config.amounts:
+            data[amount] = str(cost_item.amounts[index])
+            index += 1
+
         return data
 
     def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
+
+        # Common export
         data = self.export_item_base(cost_item, service_instance)
-        # Add provider part
+
+        # Provider service
         data['ProviderService'] = cost_item.provider_service
+
+        # Provider instance
         data['ProviderInstance'] = cost_item.provider_instance
+
+        # Provider tag selector
         data['ProviderTagSelector'] = cost_item.provider_tag_selector
+
+        # Provider cost allocation type
         data['ProviderCostAllocationType'] = cost_item.provider_cost_allocation_type
-        data['ProviderCostAllocationKey'] = str(cost_item.provider_cost_allocation_key)
+
+        # Provider cost allocation key
+        data['ProviderCostAllocationKey'] = str(cost_item.allocation_keys[0])
+
+        # Provider cost allocation keys
+        index = 0
+        for allocation_key in self.config.allocation_keys:
+            data[allocation_key] = cost_item.allocation_keys[index]
+            index += 1
+
+        # Provider cost allocation cloud tag selector
         data['ProviderCostAllocationCloudTagSelector'] = cost_item.provider_cost_allocation_cloud_tag_selector
 
-        # Add the provider metrics
-        nb_provider_meters = len(cost_item.provider_meters)
-        if nb_provider_meters:
-            for i in range(1, nb_provider_meters + 1):
+        # Provider meters
+        if self.config.nb_provider_meters:
+            for i in range(1, self.config.nb_provider_meters + 1):
                 meter = cost_item.provider_meters[i-1]
                 if meter:
                     data['ProviderMeterName%s' % i] = meter['Name']
                     data['ProviderMeterUnit%s' % i] = meter['Unit']
                     data['ProviderMeterValue%s' % i] = meter['Value']
 
-        # Add product information
+        # Product
         data['Product'] = cost_item.product
         if cost_item.product:
-            data['ProductAmortizedCost'] = cost_item.product_amortized_cost
-            data['ProductOnDemandCost'] = cost_item.product_on_demand_cost
-        nb_product_dimensions = len(cost_item.product_dimensions)
-        if nb_product_dimensions:
-            for i in range(1, nb_product_dimensions + 1):
-                dimension = cost_item.product_dimensions[i-1]
-                if dimension:
-                    data['ProductDimensionName%s' % i] = dimension['Name']
-                    data['ProductDimensionElement%s' % i] = dimension['Element']
-        nb_product_meters = len(cost_item.product_meters)
-        if nb_product_meters:
-            for i in range(1, nb_product_meters + 1):
-                meter = cost_item.product_meters[i-1]
-                if meter:
-                    if i == 1:
-                        data['ProductMeterName'] = meter['Name']
-                        data['ProductMeterUnit'] = meter['Unit']
-                        data['ProductMeterValue'] = meter['Value']
-                    else:
-                        data['ProductMeterName%s' % i] = meter['Name']
-                        data['ProductMeterUnit%s' % i] = meter['Unit']
-                        data['ProductMeterValue%s' % i] = meter['Value']
+
+            # Product dimensions
+            if self.config.nb_product_dimensions:
+                for i in range(1, self.config.nb_product_dimensions + 1):
+                    dimension = cost_item.product_dimensions[i-1]
+                    if dimension:
+                        data['ProductDimensionName%s' % i] = dimension['Name']
+                        data['ProductDimensionElement%s' % i] = dimension['Element']
+
+            # Product meters
+            if self.config.nb_product_meters:
+                for i in range(1, self.config.nb_product_meters + 1):
+                    meter = cost_item.product_meters[i-1]
+                    if meter:
+                        if i == 1:
+                            data['ProductMeterName'] = meter['Name']
+                            data['ProductMeterUnit'] = meter['Unit']
+                            data['ProductMeterValue'] = meter['Value']
+                        else:
+                            data['ProductMeterName%s' % i] = meter['Name']
+                            data['ProductMeterUnit%s' % i] = meter['Unit']
+                            data['ProductMeterValue%s' % i] = meter['Value']
+
+            # Product amounts
+            index = 0
+            for amount in self.config.amounts:
+                data['Product' + amount] = str(cost_item.product_amounts[index])
+                index += 1
 
         return data

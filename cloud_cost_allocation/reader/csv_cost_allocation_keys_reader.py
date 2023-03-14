@@ -4,7 +4,6 @@ Created on 20.04.2022
 @author: marc.diensberg
 '''
 
-from configparser import ConfigParser
 from logging import error
 import re
 
@@ -18,50 +17,34 @@ class CSV_CostAllocationKeysReader(GenericReader):
     classdocs
     '''
 
-    __slots__ = (
-        'nb_provider_meters',     # type: int
-        'nb_product_dimensions',  # type: int
-        'nb_product_meters',      # type: int
-    )
-
-    def __init__(self, cost_item_factory: CostItemFactory, config: ConfigParser):
-        '''
-        Constructor
-        '''
-        super().__init__(cost_item_factory, config)
-        if 'NumberOfProviderMeters' in self.config['General']:
-            self.nb_provider_meters = int(self.config['General']['NumberOfProviderMeters'])
-        else:
-            self.nb_provider_meters = 0
-        if 'NumberOfProductDimensions' in self.config['General']:
-            self.nb_product_dimensions = int(self.config['General']['NumberOfProductDimensions'])
-        else:
-            self.nb_product_dimensions = 0
-        if 'NumberOfProductMeters' in self.config['General']:
-            self.nb_product_meters = int(self.config['General']['NumberOfProductMeters'])
-        else:
-            self.nb_product_meters = 0
+    def __init__(self, cost_item_factory: CostItemFactory):
+        super().__init__(cost_item_factory)
 
     def read_item(self, line) -> ConsumerCostItem:
-        # Create item
+
+        # Create consumer cost item
         consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
 
-        # Populate provider service amd instance info
+        # Provider service amd instance
         consumer_cost_item.date_str = line['Date'].strip()
         if 'ProviderService' in line:
             consumer_cost_item.provider_service = line['ProviderService'].lower()
         if not consumer_cost_item.provider_service:
             error("Skipping cost allocation key line without ProviderService")
             return None
+
+        # Provider instance
         if 'ProviderInstance' in line:
             consumer_cost_item.provider_instance = line['ProviderInstance'].lower()
         if not consumer_cost_item.provider_instance:
-            consumer_cost_item.provider_instance = consumer_cost_item.provider_service  # Default value
-        consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
+            consumer_cost_item.provider_instance = consumer_cost_item.provider_service  # Default
 
-        # Populate provider tag selector and cost allocation type
+        # Provider tag selector
         if "ProviderTagSelector" in line:
             consumer_cost_item.provider_tag_selector = line["ProviderTagSelector"].lower()
+
+        # Provider cost allocation type and related fields
+        consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
         if 'ProviderCostAllocationType' in line:
             consumer_cost_item.provider_cost_allocation_type = line['ProviderCostAllocationType']
             if consumer_cost_item.provider_cost_allocation_type not in ("Key", "Cost", "CloudTagSelector"):
@@ -73,8 +56,8 @@ class CSV_CostAllocationKeysReader(GenericReader):
             if 'ProviderCostAllocationKey' in line and line['ProviderCostAllocationKey']:
                 key_str = line['ProviderCostAllocationKey']
                 if utils.is_float(key_str):
-                    consumer_cost_item.provider_cost_allocation_key = float(key_str)
-            if consumer_cost_item.provider_cost_allocation_key == 0.0:
+                    consumer_cost_item.allocation_keys[0] = float(key_str)
+            if consumer_cost_item.allocation_keys[0] == 0.0:
                 error("Skipping cost allocation key line with non-float " +
                       " ProviderCostAllocationKey: '" + key_str + "'" +
                       " for ProviderService '" + consumer_cost_item.provider_service + "'")
@@ -84,9 +67,10 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
                     line['ProviderCostAllocationCloudTagSelector']
 
-        # Populate provider meters
-        if self.nb_provider_meters:
-            for i in range(1, self.nb_provider_meters + 1):
+        # Provider meters
+        config = self.cost_item_factory.config
+        if config.nb_provider_meters:
+            for i in range(1, config.nb_provider_meters + 1):
                 provider_meter_name = None
                 provider_meter_unit = None
                 provider_meter_value = None
@@ -103,13 +87,14 @@ class CSV_CostAllocationKeysReader(GenericReader):
                               "is not a float")
                         provider_meter_value = None
                 if provider_meter_name or provider_meter_unit or provider_meter_value:
-                    provider_meter = {}
-                    provider_meter['Name'] = provider_meter_name
-                    provider_meter['Unit'] = provider_meter_unit
-                    provider_meter['Value'] = provider_meter_value
-                    consumer_cost_item.provider_meters.append(provider_meter)
+                    provider_meter = {
+                        'Name': provider_meter_name,
+                        'Unit': provider_meter_unit,
+                        'Value': provider_meter_value,
+                    }
+                    consumer_cost_item.provider_meters[i-1] = provider_meter
 
-        # Populate tags from consumer tags
+        # Consumer tags
         if 'ConsumerTags' in line:
             consumer_tags = line["ConsumerTags"]
             if consumer_tags:
@@ -135,19 +120,18 @@ class CSV_CostAllocationKeysReader(GenericReader):
             consumer_cost_item.service = line['ConsumerService'].lower()
         if 'ConsumerInstance' in line and line['ConsumerInstance']:
             consumer_cost_item.instance = line['ConsumerInstance'].lower()
-        if 'Dimensions' in self.config['General']:
-            for dimension in self.config['General']['Dimensions'].split(','):
-                consumer_dimension = 'Consumer' + dimension.strip()
-                if consumer_dimension in line and line[consumer_dimension]:
-                    consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
+        for dimension in config.dimensions:
+            consumer_dimension = 'Consumer' + dimension
+            if consumer_dimension in line and line[consumer_dimension]:
+                consumer_cost_item.dimensions[dimension] = line[consumer_dimension].lower()
 
-        # Populate product
+        # Product
         if 'Product' in line:
             consumer_cost_item.product = line['Product'].lower()
 
-        # Populate product dimensions
-        if self.nb_product_dimensions:
-            for i in range(1, self.nb_product_dimensions + 1):
+        # Product dimensions
+        if config.nb_product_dimensions:
+            for i in range(1, config.nb_product_dimensions + 1):
                 product_dimension_name_column = "ProductDimensionName%d" % i
                 if product_dimension_name_column in line:
                     product_dimension_name = line[product_dimension_name_column].lower()
@@ -159,14 +143,15 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 else:
                     product_dimension_element = None
                 if product_dimension_name or product_dimension_element:
-                    product_dimension = {}
-                    product_dimension['Name'] = product_dimension_name
-                    product_dimension['Element'] = product_dimension_element
-                    consumer_cost_item.product_dimensions.append(product_dimension)
+                    product_dimension = {
+                        'Name': product_dimension_name,
+                        'Element': product_dimension_element,
+                    }
+                    consumer_cost_item.product_dimensions[i-1] = product_dimension
 
-        # Populate product meters
-        if self.nb_product_meters:
-            for i in range(1, self.nb_product_meters + 1):
+        # Product meters
+        if config.nb_product_meters:
+            for i in range(1, config.nb_product_meters + 1):
                 product_meter_name_column = "ProductMeterName"
                 if i > 1:
                     product_meter_name_column += str(i)
@@ -193,19 +178,20 @@ class CSV_CostAllocationKeysReader(GenericReader):
                               "is not a float")
                         product_meter_value = None
                 if product_meter_name or product_meter_unit or product_meter_value:
-                    product_meter = {}
-                    product_meter['Name'] = product_meter_name
-                    product_meter['Unit'] = product_meter_unit
-                    product_meter['Value'] = product_meter_value
-                    consumer_cost_item.product_meters.append(product_meter)
+                    product_meter = {
+                        'Name': product_meter_name,
+                        'Unit': product_meter_unit,
+                        'Value': product_meter_value,
+                    }
+                    consumer_cost_item.product_meters[i-1] = product_meter
 
         # Set default values for service and instance
         if not consumer_cost_item.service:
-            if consumer_cost_item.product:  # Set self-consumption, to materialize final consumption
+            if consumer_cost_item.product:  # Product exists: let's consider it's final consumption
                 consumer_cost_item.service = consumer_cost_item.provider_service
                 consumer_cost_item.instance = consumer_cost_item.provider_instance
-            else:  # Consumer is default service
-                consumer_cost_item.service = self.config['General']['DefaultService'].strip()
+            else:  # No product, no consumer service: consumer is default service
+                consumer_cost_item.service = config.default_service
                 consumer_cost_item.instance = consumer_cost_item.service
         elif not consumer_cost_item.instance:  # Same as service by default
             consumer_cost_item.instance = consumer_cost_item.service
