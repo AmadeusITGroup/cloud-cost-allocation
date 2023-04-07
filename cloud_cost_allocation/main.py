@@ -76,11 +76,16 @@ def main():
 
     # Allocate costs
     cloud_cost_allocator = CloudCostAllocator(cost_item_factory)
+    cloud_cost_allocator.currency = cloud_cost_items[0].currency
+    cloud_cost_allocator.date_str = cloud_cost_items[0].date_str
+    info("Allocating costs with currency " + cloud_cost_allocator.currency +
+         " for date " + cloud_cost_allocator.date_str)
     if not cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items):
         error("Cost allocation failed")
         exit(3)
 
     # Write allocated costs
+    info("Writing allocated costs: " + options.output)
     allocated_cost_writer = CSV_AllocatedCostWriter(cloud_cost_allocator.service_instances, config)
     write_csv_file(options.output, allocated_cost_writer)
 

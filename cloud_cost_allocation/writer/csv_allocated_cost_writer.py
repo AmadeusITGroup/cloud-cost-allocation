@@ -4,9 +4,8 @@ Created on 21.04.2022
 @author: marc.diensberg
 '''
 from io import StringIO
-from configparser import ConfigParser
 
-from cloud_cost_allocation.cost_items import ServiceInstance
+from cloud_cost_allocation.cost_items import Config, ServiceInstance
 from cloud_cost_allocation.writer.base_writer import GenericWriter
 
 
@@ -15,7 +14,7 @@ class CSV_AllocatedCostWriter(GenericWriter):
     classdocs
     '''
 
-    def __init__(self, service_instances: list[ServiceInstance], config: ConfigParser):
+    def __init__(self, service_instances: list[ServiceInstance], config: Config):
         super().__init__(service_instances, config)
 
     def get_headers(self) -> list[str]:
