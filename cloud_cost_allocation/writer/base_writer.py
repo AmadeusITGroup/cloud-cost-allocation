@@ -4,10 +4,9 @@ Created on 21.04.2022
 @author: marc.diensberg
 '''
 from abc import ABC, abstractmethod
-from configparser import ConfigParser
 from logging import error
 
-from cloud_cost_allocation.cost_items import ServiceInstance, ConsumerCostItem, CloudCostItem, CostItem
+from cloud_cost_allocation.cost_items import Config, ServiceInstance, ConsumerCostItem, CloudCostItem, CostItem
 
 
 class GenericWriter(ABC):
@@ -16,12 +15,12 @@ class GenericWriter(ABC):
     '''
 
     __slots__ = (
-        'config',               # type: ConfigParser
+        'config',               # type: Config
         'service_instances',    # type: ServiceInstance
         'exporters',            # type: dict[type -> method]
     )
 
-    def __init__(self, service_instances: list[ServiceInstance], config: ConfigParser):
+    def __init__(self, service_instances: list[ServiceInstance], config: Config):
         '''
         Constructor
         '''

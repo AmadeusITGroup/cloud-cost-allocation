@@ -842,7 +842,7 @@ class CostItemFactory(object):
 
     def create_cloud_cost_item(self) -> CloudCostItem:
         cloud_cost_item = CloudCostItem()
-        CloudCostItem.initialize(self.config)
+        cloud_cost_item.initialize(self.config)
         return cloud_cost_item
 
     def create_consumer_cost_item(self) -> ConsumerCostItem:
