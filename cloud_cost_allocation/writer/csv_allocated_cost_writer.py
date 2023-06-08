@@ -14,7 +14,7 @@ class CSV_AllocatedCostWriter(GenericWriter):
     classdocs
     '''
 
-    def __init__(self, service_instances: list[ServiceInstance], config: Config):
+    def __init__(self, service_instances: dict[ServiceInstance], config: Config):
         super().__init__(service_instances, config)
 
     def get_headers(self) -> list[str]:

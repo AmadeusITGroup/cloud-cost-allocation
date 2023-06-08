@@ -16,11 +16,11 @@ class GenericWriter(ABC):
 
     __slots__ = (
         'config',               # type: Config
-        'service_instances',    # type: ServiceInstance
+        'service_instances',    # type: dict[ServiceInstance]
         'exporters',            # type: dict[type -> method]
     )
 
-    def __init__(self, service_instances: list[ServiceInstance], config: Config):
+    def __init__(self, service_instances: dict[ServiceInstance], config: Config):
         '''
         Constructor
         '''
