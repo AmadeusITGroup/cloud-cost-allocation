@@ -564,6 +564,12 @@ class ServiceInstance(object):
         for item in self.cost_items:
             item.nb_matching_provider_tag_selectors = 0
 
+        # Build evaluation error dict, used to avoid error streaming in case of incorrect provider tag
+        # selector expression
+        # Key = date, provider service, provider instance, provider tag selector, expression
+        # Value = count of errors
+        evaluation_error_dict = {}
+
         # Compute raw costs of non-default provider tag selectors, by checking matching items
         total_provider_tag_selector_raw_amounts = [0.0] * nb_amounts
         total_provider_tag_selector_raw_product_amounts = [0.0] * nb_amounts
@@ -584,12 +590,14 @@ class ServiceInstance(object):
                             eval_true = eval(provider_tag_selector_amount.selector, eval_globals_dict, {})
                         except:
                             exception = sys.exc_info()[0]
-                            error("Caught exception '" + str(exception) +
-                                  "' while evaluating provider tag selector '" +
-                                  provider_tag_selector_amount.selector +
-                                  "' for provider service '" +
-                                  self.service +
-                                  "'")
+                            error_key =\
+                                cost_item.date_str + chr(10) + self.service + chr(10) + self.instance + chr(10) +\
+                                provider_tag_selector_amount.selector + chr(10) + str(exception)
+                            if error_key in evaluation_error_dict:
+                                error_count = evaluation_error_dict[error_key]
+                            else:
+                                error_count = 0
+                            evaluation_error_dict[error_key] = error_count + 1
 
                         # If item matches provider tag selector, update raw amounts of the provider tag selector
                         if eval_true:
@@ -599,6 +607,20 @@ class ServiceInstance(object):
                                                     total_provider_tag_selector_raw_amounts,
                                                     total_provider_tag_selector_raw_product_amounts,
                                                     amount_to_allocation_key_indexes)
+
+        # Log evaluation errors
+        for error_key, error_count in evaluation_error_dict.items():
+            error_fields = error_key.split(chr(10))
+            date_str = error_fields[0]
+            provider_service = error_fields[1]
+            provider_instance = error_fields[2]
+            provider_tag_selector = error_fields[3]
+            exception = error_fields[4]
+            error("Caught exception '" + exception + "' " + str(error_count) + " times " +
+                  "when evaluating ProviderTagSelector '" + provider_tag_selector +
+                  "' of ProviderService '" + provider_service +
+                  "' and of ProviderInstance '" + provider_instance + "'" +
+                  ", for date " + date_str)
 
         # Compute the raw amounts of the default provider tag selector
         if '' in self.provider_tag_selector_amounts:
