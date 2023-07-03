@@ -560,27 +560,66 @@ class ServiceInstance(object):
                 amounts_by_product_info.nb_keys[index] += 1
                 index += 1
 
-        # Reset the number of matching provider tag selectors of every item
-        for item in self.cost_items:
-            item.nb_matching_provider_tag_selectors = 0
+        # We will check whether provider tag selectors form a mathematical partition of the provider
+        # cost items, i.e. if every provider cost item is matched by a single provider tag selector
+        # We will also compute for every provider tag selector the (raw) amounts of the provider cost items
+        # that are matched by the provider tag selector
+        # If the provider tag selectors do not form a partition, the selected (raw) amounts of provider tag
+        # selectors will be adjusted proportionally so that the sum equals the sum of provider cost items
 
-        # Build evaluation error dict, used to avoid error streaming in case of incorrect provider tag
-        # selector expression
-        # Key = date, provider service, provider instance, provider tag selector, expression
-        # Value = count of errors
-        evaluation_error_dict = {}
-
-        # Compute raw costs of non-default provider tag selectors, by checking matching items
+        # Process the simple common case of a single provider tag selector
+        is_partition = True
         total_provider_tag_selector_raw_amounts = [0.0] * nb_amounts
         total_provider_tag_selector_raw_product_amounts = [0.0] * nb_amounts
-        for provider_tag_selector_amount in self.provider_tag_selector_amounts.values():
+        if len(self.provider_tag_selector_amounts) == 1:
+
+            # For debug
+            provider_tag_selector_amount = list(self.provider_tag_selector_amounts.values())[0]
             if not provider_tag_selector_amount.is_default():
-                for cost_item in self.cost_items:
-                    if not cost_item.is_self_consumption():
+                debug("Provider service instance " + self.service + "." + self.instance +
+                      " has a single provider tag selector, which is not empty")
+
+            # Update raw amounts
+            for cost_item in self.cost_items:
+                if not cost_item.is_self_consumption():
+                    provider_tag_selector_amount\
+                        .update_raw_amounts(cost_item,
+                                            total_provider_tag_selector_raw_amounts,
+                                            total_provider_tag_selector_raw_product_amounts,
+                                            amount_to_allocation_key_indexes)
+
+        else:  # Case of multiple provider tag selectors
+
+            # Reset the number of matching provider tag selectors of every cost item, and build tag dict:
+            # - Key is cost item is tag string
+            # - Value is list of cost items
+            # Since multiple cost items may have the same tags, the goal is to minimize the number of tag evaluations
+            cost_item_tag_dict = {}
+            for cost_item in self.cost_items:
+                if not cost_item.is_self_consumption():
+                    cost_item.nb_matching_provider_tag_selectors = 0
+                    tag_string = str(cost_item.tags)
+                    if tag_string in cost_item_tag_dict:
+                        cost_item_list = cost_item_tag_dict[tag_string]
+                    else:
+                        cost_item_list = []
+                        cost_item_tag_dict[tag_string] = cost_item_list
+                    cost_item_list.append(cost_item)
+
+            # Build evaluation error dict, used to avoid error streaming in case of incorrect provider tag
+            # selector expression
+            # Key = date, provider service, provider instance, provider tag selector, expression
+            # Value = count of errors
+            evaluation_error_dict = {}
+
+            # Compute raw costs of non-default provider tag selectors, by checking matching items
+            for cost_item_tag, cost_item_list in cost_item_tag_dict.items():
+                for provider_tag_selector_amount in self.provider_tag_selector_amounts.values():
+                    if not provider_tag_selector_amount.is_default():
 
                         # Check if item matches provider tag selector
                         eval_globals_dict = {}
-                        for key, value in cost_item.tags.items():
+                        for key, value in cost_item_list[0].tags.items():
                             eval_globals_dict[re.sub(r'[^a-z0-9_]', '_', key)] = value
                         eval_true = False
                         try:
@@ -591,7 +630,7 @@ class ServiceInstance(object):
                         except:
                             exception = sys.exc_info()[0]
                             error_key =\
-                                cost_item.date_str + chr(10) + self.service + chr(10) + self.instance + chr(10) +\
+                                cost_item_list[0].date_str + chr(10) + self.service + chr(10) + self.instance + chr(10) +\
                                 provider_tag_selector_amount.selector + chr(10) + str(exception)
                             if error_key in evaluation_error_dict:
                                 error_count = evaluation_error_dict[error_key]
@@ -601,43 +640,43 @@ class ServiceInstance(object):
 
                         # If item matches provider tag selector, update raw amounts of the provider tag selector
                         if eval_true:
-                            cost_item.nb_matching_provider_tag_selectors += 1
-                            provider_tag_selector_amount\
-                                .update_raw_amounts(cost_item,
-                                                    total_provider_tag_selector_raw_amounts,
-                                                    total_provider_tag_selector_raw_product_amounts,
-                                                    amount_to_allocation_key_indexes)
+                            for cost_item in cost_item_list:
+                                cost_item.nb_matching_provider_tag_selectors += 1
+                                provider_tag_selector_amount\
+                                    .update_raw_amounts(cost_item,
+                                                        total_provider_tag_selector_raw_amounts,
+                                                        total_provider_tag_selector_raw_product_amounts,
+                                                        amount_to_allocation_key_indexes)
 
-        # Log evaluation errors
-        for error_key, error_count in evaluation_error_dict.items():
-            error_fields = error_key.split(chr(10))
-            date_str = error_fields[0]
-            provider_service = error_fields[1]
-            provider_instance = error_fields[2]
-            provider_tag_selector = error_fields[3]
-            exception = error_fields[4]
-            error("Caught exception '" + exception + "' " + str(error_count) + " times " +
-                  "when evaluating ProviderTagSelector '" + provider_tag_selector +
-                  "' of ProviderService '" + provider_service +
-                  "' and of ProviderInstance '" + provider_instance + "'" +
-                  ", for date " + date_str)
+            # Log evaluation errors
+            for error_key, error_count in evaluation_error_dict.items():
+                error_fields = error_key.split(chr(10))
+                date_str = error_fields[0]
+                provider_service = error_fields[1]
+                provider_instance = error_fields[2]
+                provider_tag_selector = error_fields[3]
+                exception = error_fields[4]
+                error("Caught exception '" + exception + "' " + str(error_count) + " times " +
+                      "when evaluating ProviderTagSelector '" + provider_tag_selector +
+                      "' of ProviderService '" + provider_service +
+                      "' and of ProviderInstance '" + provider_instance + "'" +
+                      ", for date " + date_str)
 
-        # Compute the raw amounts of the default provider tag selector
-        if '' in self.provider_tag_selector_amounts:
-            default_provider_tag_selector = self.provider_tag_selector_amounts['']
-            for cost_item in self.cost_items:
-                if cost_item.nb_matching_provider_tag_selectors == 0 and not cost_item.is_self_consumption():
-                    cost_item.nb_matching_provider_tag_selectors = 1
-                    default_provider_tag_selector.update_raw_amounts(cost_item,
-                                                                     total_provider_tag_selector_raw_amounts,
-                                                                     total_provider_tag_selector_raw_product_amounts,
-                                                                     amount_to_allocation_key_indexes)
+            # Compute the raw amounts of the default provider tag selector
+            if '' in self.provider_tag_selector_amounts:
+                default_provider_tag_selector = self.provider_tag_selector_amounts['']
+                for cost_item in self.cost_items:
+                    if cost_item.nb_matching_provider_tag_selectors == 0 and not cost_item.is_self_consumption():
+                        cost_item.nb_matching_provider_tag_selectors = 1
+                        default_provider_tag_selector.update_raw_amounts(cost_item,
+                                                                         total_provider_tag_selector_raw_amounts,
+                                                                         total_provider_tag_selector_raw_product_amounts,
+                                                                         amount_to_allocation_key_indexes)
 
-        # Check if provider tag selectors form a partition
-        is_partition = True
-        for item in self.cost_items:
-            if not item.is_self_consumption() and item.nb_matching_provider_tag_selectors != 1:
-                is_partition = False
+            # Check if provider tag selectors form a partition
+            for item in self.cost_items:
+                if not item.is_self_consumption() and item.nb_matching_provider_tag_selectors != 1:
+                    is_partition = False
 
         # For debug
         if not is_partition:
