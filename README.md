@@ -36,8 +36,8 @@ Furthermore, this also allows service owners to easily identify their main cost 
 | *Instance*            | A running instance or a deployment of a service. If we think of *Services* as *Classes* in object-oriented programming, then *Instances* would be the *Objects*. |
 | *Dimension*           | An optional dimension in the cost allocation, for example an environment like Test or Production, or a component in the architecture of the service.             |
 | *Meter*               | A meter that measures the functional activity or throughput of a service or of a product.                                                                        |
-| *Amortized Cost*      | The billing cost incremented with the amortized cost of the reservation purchases.                                                                               |
-| *On-demand Cost*      | The equivalent on-demand cost, i.e. as if no reservation purchase had been made.                                                                                 |
+| *Amortized Cost*      | The billing cost incremented with the amortized cost of the commitment-based purchases (reservations, saving plans).                                             |
+| *On-demand Cost*      | The equivalent on-demand cost, i.e. as if no commitment-based purchase had been made.                                                                            |
 | *Cost Item*           | A cost that is either coming from cloud provider billing or allocated by a provider service.                                                                     |
 | *Cost Allocation Key* | A numerical value to allocate a share of a cost. Cost share = cost * key / total keys.                                                                           |
 
@@ -90,9 +90,9 @@ Keep calm and drink coffee.
     * Assuming that all cloud resources are properly tagged and that services eventually allocate all their costs to products, then the costs of all cloud resources must be equal to the cost of all products
         * Similarly, the costs of a product that exclusively uses a single service would be equal to the total cost of that service
 8. On-demand costs and amortized costs are supported in parallel by the model
-    * Reporting the two is useful to investigate whether cost variations come from reservation management or something else
-    * Reporting the two is also useful for service owners and product managers alike to see the savings made thanks to the reservation purchases
-    * Reservation savings = On-demand costs - amortized costs
+    * Reporting the two is useful to investigate whether cost variations come from commitment management or something else
+    * Reporting the two is also useful for service owners and product managers alike to see the savings made thanks to the commitment-based purchases
+    * Commitment savings = On-demand costs - amortized costs
 9. Cycles in the cost allocation can be broken by providing a *service precedence list*
     * Example: A monitoring system *M* running on top of a container service *C* is also used by the container service itself
         * In this case, part of the costs of *M* should be assigned back to *C*
@@ -212,8 +212,13 @@ Product = product
 
 # The service, instance, and dimensions to allocate Azure unused reservation cost
 UnusedReservationService = finops
-UnusedReservationInstance = reservation
-UnusedReservationComponent = unused
+UnusedReservationInstance = unused-commitment
+UnusedReservationComponent = reservation
+
+# The service, instance, and dimensions to allocate Azure unused savings plan cost
+UnusedSavingsPlanService = finops
+UnusedSavingsPlanInstance = unused-commitment
+UnusedSavingsPlanComponent = savings-plan
 
 [Cycles]
 

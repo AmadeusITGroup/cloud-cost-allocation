@@ -1,2 +1,2 @@
-Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,ReservationId,
-07/22/2022,"""service"": ""a""",1000,EUR,Usage,ResourceId1,
+Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,PricingModel
+07/22/2022,"""service"": ""a""",1000,EUR,Usage,ResourceId1,OnDemand
