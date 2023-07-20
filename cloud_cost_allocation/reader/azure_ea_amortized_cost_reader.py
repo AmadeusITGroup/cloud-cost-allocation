@@ -39,10 +39,13 @@ class AzureEaAmortizedCostReader(GenericReader):
             return None
 
         # Compute and set on-demand cost (amount with index 1)
-        # https://docs.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
-        if line["ReservationId"]:
-            if line["ChargeType"] == "UnusedReservation":
-                cloud_cost_item.cloud_on_demand_cost = 0.0  # Unused reservations are not on-demand costs
+        # https://learn.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
+        # https://learn.microsoft.com/en-us/azure/cost-management-billing/savings-plan/utilization-cost-reports
+        pricing_model = line["PricingModel"]
+        charge_type = line["ChargeType"]
+        if pricing_model in ["Reservation", "SavingsPlan"]:
+            if charge_type in ["UnusedReservation", "UnusedSavingsPlan"]:
+                cloud_cost_item.cloud_on_demand_cost = 0.0  # Unused commitments are not on-demand costs
             else:
                 quantity = line["Quantity"]
                 unit_price = line["UnitPrice"]
@@ -50,9 +53,9 @@ class AzureEaAmortizedCostReader(GenericReader):
                     cloud_cost_item.amounts[1] = float(quantity) * float(unit_price)
                 else:
                     error("Quantity or UnitPrice cannot be parsed in line %s", line)
-                    cloud_cost_item.amounts[1] = 0.0  # return None?
+                    cloud_cost_item.amounts[1] = 0.0  # Return None?
 
-        else:  # No reservation: on-demand cost is same as amortized cost
+        else:  # No unused commitment: on-demand cost is amortized cost
             cloud_cost_item.amounts[1] = cloud_cost_item.amounts[0]
 
         # Set currency
@@ -69,21 +72,22 @@ class AzureEaAmortizedCostReader(GenericReader):
                 else:
                     error("Unexpected tag format in cost stream: '" + tag + "'")
 
-        # Process unused reservation
+        # Process unused commitment
         config = self.cost_item_factory.config
-        if line['ChargeType'] == 'UnusedReservation':
-            cloud_cost_item.service = config.config['AzureEaAmortizedCost']['UnusedReservationService']
-            if 'UnusedReservationInstance' in config.config['AzureEaAmortizedCost']:
-                cloud_cost_item.instance = config.config['AzureEaAmortizedCost']['UnusedReservationInstance']
+        if charge_type in ["UnusedReservation", "UnusedSavingsPlan"]:
+            cloud_cost_item.service = config.config['AzureEaAmortizedCost'][charge_type + 'Service']
+            unused_commitment_instance = charge_type + 'Instance'
+            if unused_commitment_instance in config.config['AzureEaAmortizedCost']:
+                cloud_cost_item.instance = config.config['AzureEaAmortizedCost'][unused_commitment_instance]
             else:
                 cloud_cost_item.instance = cloud_cost_item.service
             for dimension in config.dimensions:
-                unused_reservation_dimension = 'UnusedReservation' + dimension
-                if unused_reservation_dimension in config.config['AzureEaAmortizedCost']:
+                unused_commitment_dimension = charge_type + dimension
+                if unused_commitment_dimension in config.config['AzureEaAmortizedCost']:
                     cloud_cost_item.dimensions[dimension] =\
-                        config.config['AzureEaAmortizedCost'][unused_reservation_dimension]
+                        config.config['AzureEaAmortizedCost'][unused_commitment_dimension]
 
-        else:  # Not an unused reservation
+        else:  # Not an unused commitment
 
             # Fill cost item from tags
             self.fill_from_tags(cloud_cost_item)

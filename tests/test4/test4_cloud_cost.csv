@@ -1,7 +1,7 @@
-Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,ReservationId,
-03/17/2022,"""service"": ""shared1"""",""""k"": ""x""",100,EUR,Usage,ResourceId1,
-03/17/2022,"""service"": ""shared1"""",""""k"": ""y""",100,EUR,Usage,ResourceId2,
-03/17/2022,"""service"": ""shared1"""",""""k"": ""z""",10,EUR,Usage,ResourceId3,
-03/17/2022,"""service"": ""shared2"""",""""k"": ""x""",100,EUR,Usage,ResourceId4,
-03/17/2022,"""service"": ""shared2"""",""""k"": ""y""",100,EUR,Usage,ResourceId5,
-03/17/2022,"""service"": ""shared2"""",""""k"": ""z""",10,EUR,Usage,ResourceId6,
+Date,Tags,CostInBillingCurrency,BillingCurrencyCode,ChargeType,ResourceId,PricingModel
+03/17/2022,"""service"": ""shared1"""",""""k"": ""x""",100,EUR,Usage,ResourceId1,OnDemand
+03/17/2022,"""service"": ""shared1"""",""""k"": ""y""",100,EUR,Usage,ResourceId2,OnDemand
+03/17/2022,"""service"": ""shared1"""",""""k"": ""z""",10,EUR,Usage,ResourceId3,OnDemand
+03/17/2022,"""service"": ""shared2"""",""""k"": ""x""",100,EUR,Usage,ResourceId4,OnDemand
+03/17/2022,"""service"": ""shared2"""",""""k"": ""y""",100,EUR,Usage,ResourceId5,OnDemand
+03/17/2022,"""service"": ""shared2"""",""""k"": ""z""",10,EUR,Usage,ResourceId6,OnDemand
