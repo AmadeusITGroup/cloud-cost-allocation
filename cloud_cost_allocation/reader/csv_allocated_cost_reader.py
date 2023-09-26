@@ -41,7 +41,7 @@ class CSV_AllocatedCostReader(GenericReader):
                         value = key_value_match.group(2).strip().lower()
                         cost_item.tags[key] = value
                     else:
-                        error("Unexpected consumer tag format: '" + tag + "'")
+                        error("Unexpected tag format: '" + tag + "'")
 
         # Amounts
         index = 0
