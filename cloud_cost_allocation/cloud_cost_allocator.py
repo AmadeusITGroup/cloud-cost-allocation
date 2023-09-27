@@ -120,7 +120,7 @@ class CloudCostAllocator(object):
             if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
                 return False
             info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
-            self.visit_for_allocation(True, amount_to_allocation_key_indexes)
+            self.visit_for_allocation(True, False, amount_to_allocation_key_indexes)
             for service_instance in self.service_instances.values():
                 service_instance_amortized_cost = 0.0
                 for cost_item in service_instance.cost_items:
@@ -131,7 +131,7 @@ class CloudCostAllocator(object):
 
             # Allocate amortized costs for services
             info("Allocating costs, for date " + self.date_str)
-            self.visit_for_allocation(False, amount_to_allocation_key_indexes)
+            self.visit_for_allocation(False, False, amount_to_allocation_key_indexes)
 
         except CycleException:
             return False
@@ -153,7 +153,7 @@ class CloudCostAllocator(object):
 
         # Visit, by protecting against unexpected cycles
         try:
-            self.visit_for_allocation(False, amount_to_allocation_key_indexes)
+            self.visit_for_allocation(False, True, amount_to_allocation_key_indexes)
         except CycleException:
             return False
 
@@ -450,11 +450,15 @@ class CloudCostAllocator(object):
         cloud_tag_dict.clear()
         new_consumer_cost_items.clear()
 
-    def visit_for_allocation(self, ignore_cost_as_key: bool, amount_allocation_to_key_indexes: dict[int]) -> None:
+    def visit_for_allocation(self,
+                             ignore_cost_as_key: bool,
+                             increment_amounts: bool,
+                             amount_allocation_to_key_indexes: dict[int]) -> None:
         for service_instance in self.service_instances.values():
             service_instance.reset_visit()
         for service_instance in self.service_instances.values():
             visited_service_instance_list = []
             service_instance.visit_for_allocation(visited_service_instance_list,
                                                   ignore_cost_as_key,
+                                                  increment_amounts,
                                                   amount_allocation_to_key_indexes)

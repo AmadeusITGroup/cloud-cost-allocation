@@ -76,7 +76,7 @@ class CSV_AllocatedCostWriter(GenericWriter):
                 headers.extend(['Product' + amount])
 
         # Add further allocation keys
-        if self.config.nb_allocation_keys > 2:
+        if self.config.nb_allocation_keys > 1:
             headers.extend(self.config.allocation_keys[1:])
 
         return headers

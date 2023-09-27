@@ -91,6 +91,7 @@ class CostItem(ABC):
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,
                              process_self_consumption: bool,
+                             increment_amounts: bool,
                              amount_to_allocation_key_indexes: dict[int]) -> None:
         pass
 
@@ -117,6 +118,7 @@ class CloudCostItem(CostItem):
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,
                              process_self_consumption: bool,
+                             increment_amounts: bool,
                              amount_to_allocation_key_indexes: dict[int]) -> None:
         # Nothing to do
         return
@@ -223,6 +225,7 @@ class ConsumerCostItem(CostItem):
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,
                              process_self_consumption: bool,
+                             increment_amounts: bool,
                              amount_to_allocation_key_indexes: dict[int]) -> None:
 
         # Check self consumption
@@ -232,6 +235,7 @@ class ConsumerCostItem(CostItem):
             if not self.is_self_consumption():
                 self.provider_service_instance.visit_for_allocation(visited_service_instance_list,
                                                                     ignore_cost_as_key,
+                                                                    increment_amounts,
                                                                     amount_to_allocation_key_indexes)
 
             # Ignore cost as keys
@@ -264,12 +268,19 @@ class ConsumerCostItem(CostItem):
                         amount = provider_amount / nb_keys
                         product_amount = provider_product_amount / nb_keys
 
-                    # Update amounts
-                    self.amounts[amount_index] = amount
-                    if self.product:
-                        self.product_amounts[amount_index] = product_amount
+                    # Set or increment amounts
+                    if increment_amounts:
+                        self.amounts[amount_index] += amount
+                        if self.product:
+                            self.product_amounts[amount_index] += product_amount
+                        else:
+                            self.unallocated_product_amounts[amount_index] += product_amount
                     else:
-                        self.unallocated_product_amounts[amount_index] = product_amount
+                        self.amounts[amount_index] = amount
+                        if self.product:
+                            self.product_amounts[amount_index] = product_amount
+                        else:
+                            self.unallocated_product_amounts[amount_index] = product_amount
 
                     # Next amount
                     index += 1
@@ -767,6 +778,7 @@ class ServiceInstance(object):
     def visit_for_allocation(self,
                              visited_service_instance_list: list['ServiceInstance'],
                              ignore_cost_as_key: bool,
+                             increment_amounts: bool,
                              amount_to_allocation_key_indexes: dict[int]) -> None:
 
         # Already visited?
@@ -788,6 +800,7 @@ class ServiceInstance(object):
             cost_item.visit_for_allocation(visited_service_instance_list,
                                            ignore_cost_as_key,
                                            False,
+                                           increment_amounts,
                                            amount_to_allocation_key_indexes)
 
         # Compute provider tag selector amounts
@@ -798,6 +811,7 @@ class ServiceInstance(object):
             item.visit_for_allocation(visited_service_instance_list,
                                       ignore_cost_as_key,
                                       True,
+                                      increment_amounts,
                                       amount_to_allocation_key_indexes)
 
         # Set visited
