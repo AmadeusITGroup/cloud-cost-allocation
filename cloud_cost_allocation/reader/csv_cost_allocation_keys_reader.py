@@ -52,8 +52,7 @@ class CSV_CostAllocationKeysReader(GenericReader):
                       "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                 return None
         if consumer_cost_item.provider_cost_allocation_type == 'Key':
-            key_str = ""
-            if 'ProviderCostAllocationKey' in line and line['ProviderCostAllocationKey']:
+            if 'ProviderCostAllocationKey' in line:
                 key_str = line['ProviderCostAllocationKey']
                 if utils.is_float(key_str):
                     consumer_cost_item.allocation_keys[0] = float(key_str)
@@ -67,8 +66,18 @@ class CSV_CostAllocationKeysReader(GenericReader):
                 consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
                     line['ProviderCostAllocationCloudTagSelector']
 
-        # Provider meters
+        # Further allocation keys
         config = self.cost_item_factory.config
+        if config.nb_allocation_keys > 1:
+            key_index = 1
+            for further_allocation_key in config.allocation_keys[1:]:
+                if further_allocation_key in line and line[further_allocation_key]:
+                    key_str = line[further_allocation_key]
+                    if utils.is_float(key_str):
+                        consumer_cost_item.allocation_keys[key_index] = float(key_str)
+                key_index += 1
+
+        # Provider meters
         if config.nb_provider_meters:
             for i in range(1, config.nb_provider_meters + 1):
                 provider_meter_name = None

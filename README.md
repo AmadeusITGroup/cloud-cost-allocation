@@ -153,7 +153,11 @@ In theory, an even more general type of cost allocation could be considered:
 
 ### Allocation of further amounts [experimental]
 
-Further amounts (on top of cloud costs) like emitted CO2 and electricity power.
+After cost allocation, custom amounts, which are called *further amounts*, can be allocated.
+Examples of *further amounts* are CO2 and electricity power.
+The *further amounts* to allocate must be first loaded into the cost items, before the allocation is run for them.
+The *further amounts* can be loaded into cloud cost items, or even into consumer cost items: in both cases, the further amounts are allocated along the cost allocation graph.
+Custom allocation keys can be used to allocate *further amounts*.
 
 ### Configuration
 
@@ -233,13 +237,13 @@ MaxBreaks = 10
 [FurtherAmounts]
 
 # Further amounts to allocate
-Amounts = Scope1Co2,Scope2Co2,Scope3Co2,ElectricityPower
+Amounts = Co2,ElectricityPower
 
-# Allocation keys for further amounts
-AllocationKeys = ElectricityPowerAllocationKey
+# Allocation keys used for further amounts
+AllocationKeys = Co2Key
 
 # The allocation keys to use for further amounts
-AmountAllocationKeys = Scope1Co2:ProviderCostAllocationKey,Scope2Co2:ProviderCostAllocationKey,Scope3Co2:ProviderCostAllocationKey,ElectricityPower:ElectricityPowerAllocationKey
+AmountAllocationKeys = Co2:Co2Key,ElectricityPower:ProviderCostAllocationKey
 ```
 
 ## Test
