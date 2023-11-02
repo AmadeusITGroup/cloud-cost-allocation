@@ -1,5 +1,5 @@
 Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationCloudTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption
-26/09/2023,application1,application1,,80,80,EUR,container,container,,,,80,,,,,N
+26/09/2023,application1,application1,"""hello\,world"": ""hello\:\\nworld""",80,80,EUR,container,container,,,,80,,,,,N
 26/09/2023,application1,application1,,64,64,EUR,application1,application1,,,,80,product1,64,64,,Y
 26/09/2023,application1,application1,,16,16,EUR,application1,application1,,,,20,product2,16,16,,Y
 26/09/2023,application2,application2,,20,20,EUR,container,container,,,,20,,,,,N
