@@ -5,6 +5,7 @@ import re
 
 from cloud_cost_allocation.cost_items import CloudCostItem, ConsumerCostItem, CostItem, CostItemFactory
 from cloud_cost_allocation.reader.base_reader import GenericReader
+from cloud_cost_allocation.utils import utils
 
 
 class CSV_AllocatedCostReader(GenericReader):
@@ -32,16 +33,7 @@ class CSV_AllocatedCostReader(GenericReader):
             cost_item.dimensions[dimension] = line[dimension]
         tag_str = line["Tags"]
         if tag_str:
-            tags = tag_str.split(',')
-            for tag in tags:
-                if tag:
-                    key_value_match = re.match("([^:]+):([^:]*)", tag)
-                    if key_value_match:
-                        key = key_value_match.group(1).strip().lower()
-                        value = key_value_match.group(2).strip().lower()
-                        cost_item.tags[key] = value
-                    else:
-                        error("Unexpected tag format: '" + tag + "'")
+            cost_item.tags = utils.deserialize_tags(tag_str)
 
         # Amounts
         index = 0

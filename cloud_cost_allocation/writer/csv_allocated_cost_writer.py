@@ -3,10 +3,11 @@ Created on 21.04.2022
 
 @author: marc.diensberg
 '''
-from io import StringIO
 
 from cloud_cost_allocation.cost_items import Config, ServiceInstance
 from cloud_cost_allocation.writer.base_writer import GenericWriter
+
+from cloud_cost_allocation.utils import utils
 
 
 class CSV_AllocatedCostWriter(GenericWriter):
@@ -90,10 +91,7 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['Date'] = cost_item.date_str
         data['Service'] = cost_item.service
         data['Instance'] = cost_item.instance
-        tags_str = StringIO()
-        for key, value in cost_item.tags.items():
-            tags_str.write(key + ":" + value + ",")
-        data['Tags'] = tags_str.getvalue()
+        data['Tags'] = utils.serialize_tags(cost_item.tags)
         data['AmortizedCost'] = str(cost_item.amounts[0])
         data['OnDemandCost'] = str(cost_item.amounts[1])
         data['Currency'] = cost_item.currency

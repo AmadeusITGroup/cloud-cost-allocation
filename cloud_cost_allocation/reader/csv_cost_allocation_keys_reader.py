@@ -107,16 +107,7 @@ class CSV_CostAllocationKeysReader(GenericReader):
         if 'ConsumerTags' in line:
             consumer_tags = line["ConsumerTags"]
             if consumer_tags:
-                tags = consumer_tags.split(',')
-                for tag in tags:
-                    if tag:
-                        key_value_match = re.match("([^:]+):([^:]*)", tag)
-                        if key_value_match:
-                            key = key_value_match.group(1).strip().lower()
-                            value = key_value_match.group(2).strip().lower()
-                            consumer_cost_item.tags[key] = value
-                        else:
-                            error("Unexpected consumer tag format: '" + tag + "'")
+                consumer_cost_item.tags = utils.deserialize_tags(consumer_tags)
 
         # Populate consumer cost item info from consumer tags
         # Note: if both consumer tags and other consumer columns (ConsumerService, ConsumerInstance,
