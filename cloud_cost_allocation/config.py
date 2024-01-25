@@ -15,6 +15,7 @@ class Config(object):
         'config',                                # type: ConfigParser
         'date_format',                           # type: str
         'default_service',                       # type: str
+        'default_product',                       # type: str
         'service_tag_keys',                      # type: list[str]
         'instance_tag_keys',                     # type: list[str]
         'consumer_service_tag_keys',             # type: list[str]
@@ -56,6 +57,12 @@ class Config(object):
         # Default service
         if 'General' in config and 'DefaultService' in config['General']:
             self.default_service = config['General']['DefaultService'].strip().lower()
+
+        # Default product
+        if 'General' in config and 'DefaultProduct' in config['General']:
+            self.default_product = config['General']['DefaultProduct'].strip().lower()
+        else:
+            self.default_product = ''
 
         # Service tag keys
         self.service_tag_keys = []
