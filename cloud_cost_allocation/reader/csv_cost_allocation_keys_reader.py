@@ -47,11 +47,14 @@ class CSV_CostAllocationKeysReader(GenericReader):
         consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
         if 'ProviderCostAllocationType' in line:
             consumer_cost_item.provider_cost_allocation_type = line['ProviderCostAllocationType']
-            if consumer_cost_item.provider_cost_allocation_type not in ("Key", "Cost", "CloudTagSelector"):
+            if consumer_cost_item.provider_cost_allocation_type not in ("Key",
+                                                                        "Cost",
+                                                                        "CloudTagSelector",
+                                                                        "DefaultProduct"):
                 error("Unknown ProviderCostAllocationType '" + consumer_cost_item.provider_cost_allocation_type +
                       "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                 return None
-        if consumer_cost_item.provider_cost_allocation_type == 'Key':
+        if consumer_cost_item.provider_cost_allocation_type in ['Key', 'DefaultProduct']:
             if 'ProviderCostAllocationKey' in line:
                 key_str = line['ProviderCostAllocationKey']
                 if utils.is_float(key_str):

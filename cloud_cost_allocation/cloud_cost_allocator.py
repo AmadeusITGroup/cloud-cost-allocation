@@ -43,14 +43,26 @@ class CloudCostAllocator(object):
         cost_items = []
         cost_items.extend(cloud_cost_items)
 
-        # Process cloud tag selectors
-        info("Processing cloud tag selectors, for date" + self.date_str)
+        # Identify cloud tag selectors and  default product consumer cost items
         cloud_tag_selector_consumer_cost_items = []
+        default_product_consumer_cost_items = {}
+        default_product_allocation_keys = {}
         for consumer_cost_item in consumer_cost_items:
             if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 cloud_tag_selector_consumer_cost_items.append(consumer_cost_item)
+            elif consumer_cost_item.provider_cost_allocation_type == "DefaultProduct":
+                provider_service = consumer_cost_item.provider_service
+                if provider_service in default_product_consumer_cost_items:
+                    default_product_consumer_cost_items[provider_service].append(consumer_cost_item)
+                    default_product_allocation_keys[provider_service] += consumer_cost_item.allocation_keys[0]
+                else:
+                    default_product_consumer_cost_items[provider_service] = [consumer_cost_item]
+                    default_product_allocation_keys[provider_service] = consumer_cost_item.allocation_keys[0]
             else:
                 cost_items.append(consumer_cost_item)
+
+        # Process cloud tag selectors
+        info("Processing cloud tag selectors, for date" + self.date_str)
         self.process_cloud_tag_selectors(cost_items, cloud_tag_selector_consumer_cost_items, cloud_cost_items)
 
         # Create and add cloud consumer cost item from tags
@@ -58,6 +70,11 @@ class CloudCostAllocator(object):
         new_consumer_cost_items = []
         self.create_consumer_cost_items_from_tags(new_consumer_cost_items, cost_items)
         cost_items.extend(new_consumer_cost_items)
+
+        # Process default products
+        cost_items = self.process_default_products(cost_items,
+                                                   default_product_consumer_cost_items,
+                                                   default_product_allocation_keys)
 
         # Check dates
         cleansed_cost_items = []
@@ -103,11 +120,8 @@ class CloudCostAllocator(object):
         if not self.break_cycles(cost_items):
             return False
 
-        # Initialize instances and set cost item links
-        self.service_instances = {}
-        for cost_item in cost_items:
-            if not cost_item.is_consumer_cost_item_removed_for_cycle():
-                cost_item.set_instance_links(self)
+        # Reset instances
+        self.reset_instances(cost_items)
 
         # Protect against unexpected cycles
         try:
@@ -146,10 +160,8 @@ class CloudCostAllocator(object):
                                                                                     amounts):
             return False
 
-        # Initialize instances and set cost item links
-        self.service_instances = {}
-        for cost_item in cost_items:
-            cost_item.set_instance_links(self)
+        # Reset instances
+        self.reset_instances(cost_items)
 
         # Visit, by protecting against unexpected cycles
         try:
@@ -180,11 +192,8 @@ class CloudCostAllocator(object):
             # Log
             info("Detecting and breaking cycles, for date " + self.date_str + ": pass " + str(nb_breaks))
 
-            # Initialize instances and set cost item links
-            self.service_instances = {}
-            for cost_item in cost_items:
-                if not cost_item.is_consumer_cost_item_removed_for_cycle():
-                    cost_item.set_instance_links(self)
+            # Reset instances
+            self.reset_instances(cost_items)
 
             # Reset visit
             for service_instance in self.service_instances.values():
@@ -449,6 +458,77 @@ class CloudCostAllocator(object):
         evaluation_error_dict.clear()
         cloud_tag_dict.clear()
         new_consumer_cost_items.clear()
+
+    def reset_instances(self, cost_items: list[CostItem]):
+        self.service_instances = {}
+        for cost_item in cost_items:
+            if not cost_item.is_consumer_cost_item_removed_for_cycle():
+                cost_item.set_instance_links(self)
+
+    def process_default_products(self,
+                                 cost_items: list[CostItem],
+                                 default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]],
+                                 default_product_allocation_keys: dict[str, float]):
+
+        # Reset instances
+        self.reset_instances(cost_items)
+
+        # Add default products for consumer cost items with no product
+        new_cost_items = []
+        for cost_item in cost_items:
+            provider_service = cost_item.get_provider_service()
+            if (provider_service and
+                    not cost_item.get_product() and
+                    cost_item.provider_service in default_product_consumer_cost_items):
+                for default_product_consumer_cost_item\
+                        in default_product_consumer_cost_items[cost_item.provider_service]:
+                    new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                    new_consumer_cost_item.copy(cost_item)
+                    new_consumer_cost_item.product = default_product_consumer_cost_item.product
+                    new_consumer_cost_item.product_dimensions =\
+                        default_product_consumer_cost_item.product_dimensions.copy()
+                    new_consumer_cost_item.allocation_keys[0] *=\
+                        default_product_consumer_cost_item.allocation_keys[0] /\
+                        default_product_allocation_keys[cost_item.provider_service]
+                    new_cost_items.append(new_consumer_cost_item)
+            else:
+                new_cost_items.append(cost_item)
+
+        # Set global default product for self consumption
+        default_product = self.cost_item_factory.config.default_product
+        if default_product:
+            for cost_item in new_cost_items:
+                if cost_item.is_self_consumption():
+                    if not cost_item.get_product():
+                        cost_item.set_product(default_product)
+
+        # Add consumer cost items with default products for final service instances with no product
+        for service_instance in self.service_instances.values():
+            if not service_instance.is_provider():
+                new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                new_consumer_cost_item.date_str = self.date_str
+                new_consumer_cost_item.provider_service = service_instance.service
+                new_consumer_cost_item.provider_instance = service_instance.instance
+                new_consumer_cost_item.service = service_instance.service
+                new_consumer_cost_item.instance = service_instance.instance
+                new_consumer_cost_item.provider_cost_allocation_type = "DefaultProduct"
+                new_consumer_cost_item.allocation_keys[0] = 1.0
+                if service_instance.service in default_product_consumer_cost_items:
+                    for default_product_consumer_cost_item\
+                            in default_product_consumer_cost_items[service_instance.service]:
+                        new_consumer_cost_item_with_product = self.cost_item_factory.create_consumer_cost_item()
+                        new_consumer_cost_item_with_product.copy(new_consumer_cost_item)
+                        new_consumer_cost_item_with_product.product = default_product_consumer_cost_item.product
+                        new_consumer_cost_item_with_product.allocation_keys[0] *=\
+                            default_product_consumer_cost_item.allocation_keys[0] /\
+                            default_product_allocation_keys[service_instance.service]
+                        new_cost_items.append(new_consumer_cost_item_with_product)
+                elif default_product:
+                    new_consumer_cost_item.product = default_product
+                    new_cost_items.append(new_consumer_cost_item)
+
+        # Return
+        return new_cost_items
 
     def visit_for_allocation(self,
                              ignore_cost_as_key: bool,

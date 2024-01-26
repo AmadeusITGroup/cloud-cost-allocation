@@ -166,6 +166,9 @@ class Test(unittest.TestCase):
     def test_test7(self):
         self.run_further_allocation('test7', self.load_further_amount_test7)
 
+    def test_test8(self):
+        self.run_allocation('test8')
+
     # Auxiliary methods
     def load_further_amount_test7(self, cost_items: list[CostItem]):
         for cost_item in cost_items:

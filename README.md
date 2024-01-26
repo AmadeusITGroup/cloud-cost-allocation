@@ -104,7 +104,7 @@ Keep calm and drink coffee.
 
 ## Bittersweet ways for a service to allocate its cost
 
-The standard way for a service to allocate cost to its consumers is to provide dynamic cost allocation data containing cost allocation keys
+The standard way for a service to its allocate cost is to provide dynamic cost allocation data containing cost allocation keys.
 Three alternatives exist to this, and they should be used carefully:
 1. Use specific configurable *consumer service and product tags*
     * While providing an easy way to dynamically allocate costs, it does not offer any means to track usage and thus provides no hint to consumers on what drives their costs (black box)
@@ -131,17 +131,23 @@ Examples are available in the tests `test3` and `test4`.
 ### Cost allocation types in cost allocation data
 
 The default value of *ProviderCostAllocationType* in cost allocation data is *'Key'*.
-Two other types of cost allocation are supported:
+Three other types of cost allocation are supported:
 1. *'CloudTagSelector'*
     * The consumer service instances are not explicitly specified in the cost allocation data
         * They are inferred as the ones consuming the cloud cost items whose tags match the *ProviderCostAllocationCloudTagSelector* expression
     * The cost allocation keys are set as the amortized costs of the matching cloud cost items
     * This type of cost allocation is convenient to allocate costs to consumer services that run directly on the cloud proportionally to their cloud costs
+    * See example in the test `test3`
 2. *'Cost'*
     * The cost is allocated to the consumer services proportionally to their amortized costs
     * Technically, amortized costs are globally allocated to service instances in a first time, while ignoring this type of cost allocation
     * The amortized costs resulting from this cost allocation are used in a second pass as cost allocation keys to perform the actual cost allocation
     * Although this type of cost allocation is convenient to avoid bothering about cost allocation keys, it can produce results that are hardly predictable and understandable, depending on the complexity of the global cost allocation graph
+    * See example in the test `test3`
+3. *'DefaultProduct'*
+    * By default, the cost of the provider service is allocated to the specified product(s)
+    * This type of cost allocation is convenient to implement centrally a default cost allocation to products, which is overriden by service owners when the latter provide cost allocation data
+    * See example in the test `test8`
 
 Examples of *'CloudTagSelector'* and *'Cost'* cost allocation types are available in the test `test3`.
 
@@ -173,6 +179,9 @@ DateFormat = %%Y-%%m-%%d.
 
 # The name of the default service to use for cost allocation when the service tag is missing
 DefaultService = x
+
+# The name of the default product to allocate costs (optional)
+DefaultProduct = x
 
 # The dimensions
 Dimensions = Component,Environment
@@ -281,7 +290,6 @@ When contributing code, please follow [this project-agnostic contribution guide]
 
 ## TODO
 
-- Cost readers for GCP and AWS.
+- Cost reader for FOCUS
 - Split and dispatch of the provider meter values when CloudTagSelector is used.
 - Support product dimension in cloud tags
-- Unit test for further amount allocation

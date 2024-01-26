@@ -42,6 +42,14 @@ class CostItem(ABC):
         self.currency = ""
         self.nb_matching_provider_tag_selectors = 0
 
+    def copy(self, cost_item: 'CostItem'):
+        self.date_str = cost_item.date_str
+        self.service = cost_item.service
+        self.instance = cost_item.instance
+        self.dimensions = cost_item.dimensions.copy()
+        self.tags = cost_item.tags.copy()
+        self.currency = cost_item.currency
+
     def get_consumer_cost_item_provider_service_instance(self) -> 'ServiceInstance':
         # Default behavior, overridden in child classes
         return None
@@ -61,6 +69,10 @@ class CostItem(ABC):
     def get_product_meters(self) -> list[dict[str, str]]:
         # Default behavior, overridden in child classes
         return []
+
+    def get_provider_service(self) -> str:
+        # Default behavior, overridden in child classes
+        return ''
 
     def get_unallocated_product_amount(self, index: int) -> float:
         # Default behavior, overridden in child classes
@@ -84,6 +96,10 @@ class CostItem(ABC):
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
         # Default behavior, overridden in child classes
         cloud_cost_allocator.get_service_instance(self.service, self.instance).cost_items.append(self)
+
+    def set_product(self, product: str) -> None:
+        # Default behavior, overridden in child classes
+        return
 
     # Must be implemented in child classes
     @abstractmethod
@@ -178,6 +194,20 @@ class ConsumerCostItem(CostItem):
         self.is_removed_from_cycle = False
         self.provider_service_instance = None
 
+    def copy(self, consumer_cost_item: 'ConsumerCostItem'):
+        super().copy(consumer_cost_item)
+        self.provider_service = consumer_cost_item.provider_service
+        self.provider_instance = consumer_cost_item.provider_instance
+        self.provider_tag_selector = consumer_cost_item.provider_tag_selector
+        self.provider_cost_allocation_type = consumer_cost_item.provider_cost_allocation_type
+        self.allocation_keys = consumer_cost_item.allocation_keys.copy()
+        self.provider_cost_allocation_cloud_tag_selector =\
+            consumer_cost_item.provider_cost_allocation_cloud_tag_selector
+        self.provider_meters = consumer_cost_item.provider_meters.copy()
+        self.product = consumer_cost_item.product
+        self.product_dimensions = consumer_cost_item.product_dimensions.copy()
+        self.product_meters = consumer_cost_item.product_meters.copy()
+
     def get_consumer_cost_item_provider_service_instance(self) -> 'ServiceInstance':
         return self.provider_service_instance
 
@@ -192,6 +222,10 @@ class ConsumerCostItem(CostItem):
 
     def get_product_meters(self) -> list[dict[str, str]]:
         return self.product_meters
+
+    def get_provider_service(self) -> str:
+        # Default behavior, overridden in child classes
+        return self.provider_service
 
     def get_unallocated_product_amount(self, index: int) -> float:
         return self.unallocated_product_amounts[index]
@@ -220,6 +254,9 @@ class ConsumerCostItem(CostItem):
         self.provider_service_instance = cloud_cost_allocator.get_service_instance(self.provider_service,
                                                                                    self.provider_instance)
         self.provider_service_instance.consumer_cost_items.append(self)
+
+    def set_product(self, product: str) -> None:
+        self.product = product
 
     def visit_for_allocation(self,
                              visited_service_instance_list: list['ServiceInstance'],
