@@ -61,7 +61,7 @@ class CloudCostAllocator(object):
             else:
                 cost_items.append(consumer_cost_item)
 
-        # Process cloud tag selectors and identify default product consumer cost items
+        # Process cloud tag selectors
         info("Processing cloud tag selectors, for date" + self.date_str)
         self.process_cloud_tag_selectors(cost_items, cloud_tag_selector_consumer_cost_items, cloud_cost_items)
 
