@@ -519,6 +519,8 @@ class CloudCostAllocator(object):
                         new_consumer_cost_item_with_product = self.cost_item_factory.create_consumer_cost_item()
                         new_consumer_cost_item_with_product.copy(new_consumer_cost_item)
                         new_consumer_cost_item_with_product.product = default_product_consumer_cost_item.product
+                        new_consumer_cost_item_with_product.product_dimensions =\
+                            default_product_consumer_cost_item.product_dimensions.copy()
                         new_consumer_cost_item_with_product.allocation_keys[0] *=\
                             default_product_consumer_cost_item.allocation_keys[0] /\
                             default_product_allocation_keys[service_instance.service]
