@@ -45,7 +45,7 @@ def read_csv(uri, reader, cost_items):
 
 
 def read_csv_file(uri, reader, cost_items):
-    with open(uri, 'r') as text_io:
+    with open(uri, 'r', encoding='utf-8') as text_io:
         dict_reader = csv.DictReader(text_io)
         reader.read(cost_items, dict_reader)
 
@@ -69,7 +69,7 @@ def serialize_tags(tags: dict[str, str]):
 
 def write_csv_file(uri, writer):
     # Write allocated costs
-    with open(uri, 'w', newline='') as out_stream:
+    with open(uri, 'w', encoding='utf-8', newline='') as out_stream:
         # Open CSV file and write header
         dict_writer = csv.DictWriter(out_stream,
                                      fieldnames=writer.get_headers(),
