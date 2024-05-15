@@ -43,10 +43,12 @@ class CloudCostAllocator(object):
         cost_items = []
         cost_items.extend(cloud_cost_items)
 
-        # Identify cloud tag selectors and  default product consumer cost items
+        # Identify cloud tag selectors and default product consumer cost items
+        # Also check if cost is used as cost allocation type
         cloud_tag_selector_consumer_cost_items = []
         default_product_consumer_cost_items = {}
         default_product_allocation_keys = {}
+        is_cost_used_as_cost_allocation_type = False
         for consumer_cost_item in consumer_cost_items:
             if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 cloud_tag_selector_consumer_cost_items.append(consumer_cost_item)
@@ -59,6 +61,8 @@ class CloudCostAllocator(object):
                     default_product_consumer_cost_items[provider_service] = [consumer_cost_item]
                     default_product_allocation_keys[provider_service] = consumer_cost_item.allocation_keys[0]
             else:
+                if consumer_cost_item.provider_cost_allocation_type == "Cost":
+                    is_cost_used_as_cost_allocation_type = True
                 cost_items.append(consumer_cost_item)
 
         # Process cloud tag selectors
@@ -126,22 +130,25 @@ class CloudCostAllocator(object):
         # Protect against unexpected cycles
         try:
 
-            # Compute service amortized cost, ignoring the keys that are using cost, and then
-            # set these keys from the allocated cost
+            # Build amount allocation key indexes dictionary
             amounts = ['AmortizedCost', 'OnDemandCost']
             amount_to_allocation_key_indexes = {}
             config = self.cost_item_factory.config
             if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
                 return False
-            info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
-            self.visit_for_allocation(True, False, amount_to_allocation_key_indexes)
-            for service_instance in self.service_instances.values():
-                service_instance_amortized_cost = 0.0
-                for cost_item in service_instance.cost_items:
-                    if not cost_item.is_self_consumption():
-                        service_instance_amortized_cost += cost_item.amounts[0]
-                for cost_item in service_instance.cost_items:
-                    cost_item.set_cost_as_key(service_instance_amortized_cost)
+
+            # Compute service amortized cost, ignoring the keys that are using cost, and then
+            # set these keys from the allocated cost
+            if is_cost_used_as_cost_allocation_type:  # Save run time if not needed
+                info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
+                self.visit_for_allocation(True, False, amount_to_allocation_key_indexes)
+                for service_instance in self.service_instances.values():
+                    service_instance_amortized_cost = 0.0
+                    for cost_item in service_instance.cost_items:
+                        if not cost_item.is_self_consumption():
+                            service_instance_amortized_cost += cost_item.amounts[0]
+                    for cost_item in service_instance.cost_items:
+                        cost_item.set_cost_as_key(service_instance_amortized_cost)
 
             # Allocate amortized costs for services
             info("Allocating costs, for date " + self.date_str)
