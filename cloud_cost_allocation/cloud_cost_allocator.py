@@ -484,6 +484,7 @@ class CloudCostAllocator(object):
                         in default_product_consumer_cost_items[cost_item.provider_service]:
                     new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
                     new_consumer_cost_item.copy(cost_item)
+                    new_consumer_cost_item.provider_cost_allocation_type += "+DefaultProduct"
                     new_consumer_cost_item.product = default_product_consumer_cost_item.product
                     new_consumer_cost_item.product_dimensions =\
                         default_product_consumer_cost_item.product_dimensions.copy()
@@ -501,6 +502,7 @@ class CloudCostAllocator(object):
                 if cost_item.is_self_consumption():
                     if not cost_item.get_product():
                         cost_item.set_product(default_product)
+                        cost_item.provider_cost_allocation_type += "+DefaultProduct"
 
         # Add consumer cost items with default products for final service instances with no product
         for service_instance in self.service_instances.values():
