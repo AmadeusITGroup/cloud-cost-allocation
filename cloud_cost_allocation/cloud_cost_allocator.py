@@ -66,7 +66,7 @@ class CloudCostAllocator(object):
                 cost_items.append(consumer_cost_item)
 
         # Process cloud tag selectors
-        info("Processing cloud tag selectors, for date" + self.date_str)
+        info("Processing cloud tag selectors, for date " + self.date_str)
         self.process_cloud_tag_selectors(cost_items, cloud_tag_selector_consumer_cost_items, cloud_cost_items)
 
         # Create and add cloud consumer cost item from tags
@@ -492,12 +492,17 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
                     new_consumer_cost_item.copy(cost_item)
                     new_consumer_cost_item.provider_cost_allocation_type += "+DefaultProduct"
+                    default_product_allocation_key_ratio =\
+                        default_product_consumer_cost_item.allocation_keys[0] /\
+                        default_product_allocation_keys[cost_item.provider_service]
+                    for provider_meter in new_consumer_cost_item.provider_meters:
+                        if "Value" in provider_meter:
+                            value = float(provider_meter["Value"])
+                            provider_meter["Value"] = str(value * default_product_allocation_key_ratio)
                     new_consumer_cost_item.product = default_product_consumer_cost_item.product
                     new_consumer_cost_item.product_dimensions =\
                         default_product_consumer_cost_item.product_dimensions.copy()
-                    new_consumer_cost_item.allocation_keys[0] *=\
-                        default_product_consumer_cost_item.allocation_keys[0] /\
-                        default_product_allocation_keys[cost_item.provider_service]
+                    new_consumer_cost_item.allocation_keys[0] *= default_product_allocation_key_ratio
                     new_cost_items.append(new_consumer_cost_item)
             else:
                 new_cost_items.append(cost_item)
@@ -521,7 +526,6 @@ class CloudCostAllocator(object):
                 new_consumer_cost_item.service = service_instance.service
                 new_consumer_cost_item.instance = service_instance.instance
                 new_consumer_cost_item.provider_cost_allocation_type = "DefaultProduct"
-                new_consumer_cost_item.allocation_keys[0] = 1.0
                 if service_instance.service in default_product_consumer_cost_items:
                     for default_product_consumer_cost_item\
                             in default_product_consumer_cost_items[service_instance.service]:
@@ -530,12 +534,12 @@ class CloudCostAllocator(object):
                         new_consumer_cost_item_with_product.product = default_product_consumer_cost_item.product
                         new_consumer_cost_item_with_product.product_dimensions =\
                             default_product_consumer_cost_item.product_dimensions.copy()
-                        new_consumer_cost_item_with_product.allocation_keys[0] *=\
-                            default_product_consumer_cost_item.allocation_keys[0] /\
-                            default_product_allocation_keys[service_instance.service]
+                        new_consumer_cost_item_with_product.allocation_keys[0] =\
+                            default_product_consumer_cost_item.allocation_keys[0]
                         new_cost_items.append(new_consumer_cost_item_with_product)
                 elif default_product:
                     new_consumer_cost_item.product = default_product
+                    new_consumer_cost_item.allocation_keys[0] = 1.0
                     new_cost_items.append(new_consumer_cost_item)
 
         # Return

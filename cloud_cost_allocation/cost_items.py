@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from io import StringIO
 from logging import debug, info, error
+import copy
 import re
 import sys
 
@@ -203,10 +204,10 @@ class ConsumerCostItem(CostItem):
         self.allocation_keys = consumer_cost_item.allocation_keys.copy()
         self.provider_cost_allocation_cloud_tag_selector =\
             consumer_cost_item.provider_cost_allocation_cloud_tag_selector
-        self.provider_meters = consumer_cost_item.provider_meters.copy()
+        self.provider_meters = copy.deepcopy(consumer_cost_item.provider_meters)
         self.product = consumer_cost_item.product
-        self.product_dimensions = consumer_cost_item.product_dimensions.copy()
-        self.product_meters = consumer_cost_item.product_meters.copy()
+        self.product_dimensions = copy.deepcopy(consumer_cost_item.product_dimensions.copy())
+        self.product_meters = copy.deepcopy(consumer_cost_item.product_meters)
 
     def get_consumer_cost_item_provider_service_instance(self) -> 'ServiceInstance':
         return self.provider_service_instance
