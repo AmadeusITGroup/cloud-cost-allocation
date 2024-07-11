@@ -9,6 +9,7 @@ import sys
 from cloud_cost_allocation.cost_items import CloudCostItem, ConsumerCostItem, CostItemFactory, \
     CostItem, ServiceInstance
 from cloud_cost_allocation.exceptions import CycleException, BreakableCycleException, UnbreakableCycleException
+from cloud_cost_allocation.utils.utils import is_float
 
 
 class CloudCostAllocator(object):
@@ -497,8 +498,9 @@ class CloudCostAllocator(object):
                         default_product_allocation_keys[cost_item.provider_service]
                     for provider_meter in new_consumer_cost_item.provider_meters:
                         if "Value" in provider_meter:
-                            value = float(provider_meter["Value"])
-                            provider_meter["Value"] = str(value * default_product_allocation_key_ratio)
+                            value = provider_meter["Value"]
+                            if is_float(value):
+                                provider_meter["Value"] = str(float(value) * default_product_allocation_key_ratio)
                     new_consumer_cost_item.product = default_product_consumer_cost_item.product
                     new_consumer_cost_item.product_dimensions =\
                         default_product_consumer_cost_item.product_dimensions.copy()
