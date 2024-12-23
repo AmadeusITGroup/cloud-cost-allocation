@@ -467,16 +467,10 @@ class CloudCostAllocator(object):
         cloud_tag_dict.clear()
         new_consumer_cost_items.clear()
 
-    def reset_instances(self, cost_items: list[CostItem]):
-        self.service_instances = {}
-        for cost_item in cost_items:
-            if not cost_item.is_consumer_cost_item_removed_for_cycle():
-                cost_item.set_instance_links(self)
-
     def process_default_products(self,
                                  cost_items: list[CostItem],
                                  default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]],
-                                 default_product_allocation_keys: dict[str, float]):
+                                 default_product_allocation_total_keys: dict[str, float]):
 
         # Reset instances
         self.reset_instances(cost_items)
@@ -495,7 +489,7 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.provider_cost_allocation_type += "+DefaultProduct"
                     default_product_allocation_key_ratio =\
                         default_product_consumer_cost_item.allocation_keys[0] /\
-                        default_product_allocation_keys[cost_item.provider_service]
+                        default_product_allocation_total_keys[cost_item.provider_service]
                     for provider_meter in new_consumer_cost_item.provider_meters:
                         if "Value" in provider_meter:
                             value = provider_meter["Value"]
@@ -546,6 +540,12 @@ class CloudCostAllocator(object):
 
         # Return
         return new_cost_items
+
+    def reset_instances(self, cost_items: list[CostItem]):
+        self.service_instances = {}
+        for cost_item in cost_items:
+            if not cost_item.is_consumer_cost_item_removed_for_cycle():
+                cost_item.set_instance_links(self)
 
     def visit_for_allocation(self,
                              ignore_cost_as_key: bool,
