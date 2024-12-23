@@ -52,6 +52,14 @@ class TestConsumerCostItem(ConsumerCostItem):
     Tests the enhancements of consumer cost items
     """
 
+    __slots__ = (
+        'product_info',  # type: str
+    )
+
+    def __init__(self):
+        super().__init__()
+        self.product_info = ""
+
     def get_cost_allocation_key(self, index):
         return self.allocation_keys[index]
 
@@ -83,6 +91,19 @@ class TestAzureEaAmortizedCostReader(AzureEaAmortizedCostReader):
         return cost_item
 
 
+class TestCostAllocationKeysReader(CSV_CostAllocationKeysReader):
+
+    def __init__(self, cost_item_factory: CostItemFactory):
+        super().__init__(cost_item_factory)
+
+    def read_item(self, line) -> TestCloudCostItem:
+        cost_item = super().read_item(line)
+        # Set product info
+        if 'ProductInfo' in line:
+            cost_item.product_info = line['ProductInfo'].lower()
+        return cost_item
+
+
 class TestCsvAllocatedCostReader(CSV_AllocatedCostReader):
 
     def __init__(self, cost_item_factory: CostItemFactory):
@@ -92,6 +113,12 @@ class TestCsvAllocatedCostReader(CSV_AllocatedCostReader):
         cost_item = super().read_cloud_cost_item(line)
         # Set cloud provider
         cost_item.cloud = line['Cloud']
+        return cost_item
+
+    def read_consumer_cost_item(self, line) -> TestConsumerCostItem:
+        cost_item = super().read_consumer_cost_item(line)
+        # Set product info
+        cost_item.product_info = line['ProductInfo']
         return cost_item
 
 
@@ -105,21 +132,24 @@ class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
         # - Cloud: the cloud provider name, filled for a cloud cost item
         # - IsFinalConsumption: value is Y if the cost item is a leave in the cost allocation graph, N otherwise
         headers = super().get_headers()
-        headers.extend(['Cloud', 'IsFinalConsumption'])
+        headers.extend(['Cloud', 'IsFinalConsumption', 'ProductInfo'])
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
         data = super().export_item_base(cost_item, service_instance)
-
         has_consumer = service_instance.is_provider()
         data['IsFinalConsumption'] = "Y" if not has_consumer or cost_item.is_self_consumption() else "N"
-
         return data
 
     def export_item_cloud(self, cost_item, service_instance) -> dict[str]:
         data = super().export_item_cloud(cost_item, service_instance)
         data['Cloud'] = cost_item.cloud
+        return data
 
+    def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
+        data = super().export_item_consumer(cost_item, service_instance)
+        if cost_item.product_info:
+            data['ProductInfo'] = cost_item.product_info
         return data
 
 
@@ -137,6 +167,22 @@ class TestCostItemFactory(CostItemFactory):
         test_consumer_cost_item = TestConsumerCostItem()
         test_consumer_cost_item.initialize(self.config)
         return test_consumer_cost_item
+
+
+class TestCloudCostAllocator(CloudCostAllocator):
+    def __init__(self, config: Config):
+        super().__init__(config)
+
+    def update_default_product_from_consumer_cost_item(self,
+                                                       new_consumer_cost_item: ConsumerCostItem,
+                                                       default_product_consumer_cost_item: ConsumerCostItem):
+        super().update_default_product_from_consumer_cost_item(new_consumer_cost_item,
+                                                               default_product_consumer_cost_item)
+        new_consumer_cost_item.product_info = default_product_consumer_cost_item.product_info
+
+    def update_default_product_from_config(self, new_consumer_cost_item: ConsumerCostItem):
+        super().update_default_product_from_config(new_consumer_cost_item)
+        new_consumer_cost_item.product_info = "0"
 
 
 class Test(unittest.TestCase):
@@ -219,12 +265,12 @@ class Test(unittest.TestCase):
 
         # Read keys
         consumer_cost_items = []
-        cost_allocation_keys_reader = CSV_CostAllocationKeysReader(cost_item_factory)
+        cost_allocation_keys_reader = TestCostAllocationKeysReader(cost_item_factory)
         allocation_keys_filename = directory + "/" + test + "/" + test + "_cost_allocation_keys.csv"
         read_csv_file(allocation_keys_filename, cost_allocation_keys_reader, consumer_cost_items)
 
         # Allocate costs
-        cloud_cost_allocator = CloudCostAllocator(cost_item_factory)
+        cloud_cost_allocator = TestCloudCostAllocator(cost_item_factory)
         cloud_cost_allocator.date_str = consumer_cost_items[0].date_str
         cloud_cost_allocator.currency = "EUR"
         assert_message = test + ": cost allocation failed"

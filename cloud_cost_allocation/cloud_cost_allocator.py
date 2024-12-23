@@ -467,16 +467,10 @@ class CloudCostAllocator(object):
         cloud_tag_dict.clear()
         new_consumer_cost_items.clear()
 
-    def reset_instances(self, cost_items: list[CostItem]):
-        self.service_instances = {}
-        for cost_item in cost_items:
-            if not cost_item.is_consumer_cost_item_removed_for_cycle():
-                cost_item.set_instance_links(self)
-
     def process_default_products(self,
                                  cost_items: list[CostItem],
                                  default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]],
-                                 default_product_allocation_keys: dict[str, float]):
+                                 default_product_allocation_total_keys: dict[str, float]):
 
         # Reset instances
         self.reset_instances(cost_items)
@@ -493,18 +487,17 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
                     new_consumer_cost_item.copy(cost_item)
                     new_consumer_cost_item.provider_cost_allocation_type += "+DefaultProduct"
+                    default_product_total_keys = default_product_allocation_total_keys[cost_item.provider_service]
                     default_product_allocation_key_ratio =\
-                        default_product_consumer_cost_item.allocation_keys[0] /\
-                        default_product_allocation_keys[cost_item.provider_service]
+                        default_product_consumer_cost_item.allocation_keys[0] / default_product_total_keys
                     for provider_meter in new_consumer_cost_item.provider_meters:
                         if "Value" in provider_meter:
                             value = provider_meter["Value"]
                             if is_float(value):
                                 provider_meter["Value"] = str(float(value) * default_product_allocation_key_ratio)
-                    new_consumer_cost_item.product = default_product_consumer_cost_item.product
-                    new_consumer_cost_item.product_dimensions =\
-                        default_product_consumer_cost_item.product_dimensions.copy()
-                    new_consumer_cost_item.allocation_keys[0] *= default_product_allocation_key_ratio
+                    self.update_default_product_from_consumer_cost_item(new_consumer_cost_item,
+                                                                        default_product_consumer_cost_item)
+                    new_consumer_cost_item.allocation_keys[0] /= default_product_total_keys
                     new_cost_items.append(new_consumer_cost_item)
             else:
                 new_cost_items.append(cost_item)
@@ -515,8 +508,8 @@ class CloudCostAllocator(object):
             for cost_item in new_cost_items:
                 if cost_item.is_self_consumption():
                     if not cost_item.get_product():
-                        cost_item.set_product(default_product)
                         cost_item.provider_cost_allocation_type += "+DefaultProduct"
+                        self.update_default_product_from_config(cost_item)
 
         # Add consumer cost items with default products for final service instances with no product
         for service_instance in self.service_instances.values():
@@ -528,24 +521,37 @@ class CloudCostAllocator(object):
                 new_consumer_cost_item.service = service_instance.service
                 new_consumer_cost_item.instance = service_instance.instance
                 new_consumer_cost_item.provider_cost_allocation_type = "DefaultProduct"
+                new_consumer_cost_item.allocation_keys[0] = 1.0
                 if service_instance.service in default_product_consumer_cost_items:
                     for default_product_consumer_cost_item\
                             in default_product_consumer_cost_items[service_instance.service]:
                         new_consumer_cost_item_with_product = self.cost_item_factory.create_consumer_cost_item()
                         new_consumer_cost_item_with_product.copy(new_consumer_cost_item)
-                        new_consumer_cost_item_with_product.product = default_product_consumer_cost_item.product
-                        new_consumer_cost_item_with_product.product_dimensions =\
-                            default_product_consumer_cost_item.product_dimensions.copy()
-                        new_consumer_cost_item_with_product.allocation_keys[0] =\
-                            default_product_consumer_cost_item.allocation_keys[0]
+                        self.update_default_product_from_consumer_cost_item(new_consumer_cost_item_with_product,
+                                                                            default_product_consumer_cost_item)
                         new_cost_items.append(new_consumer_cost_item_with_product)
                 elif default_product:
-                    new_consumer_cost_item.product = default_product
-                    new_consumer_cost_item.allocation_keys[0] = 1.0
+                    self.update_default_product_from_config(new_consumer_cost_item)
                     new_cost_items.append(new_consumer_cost_item)
 
         # Return
         return new_cost_items
+
+    def reset_instances(self, cost_items: list[CostItem]):
+        self.service_instances = {}
+        for cost_item in cost_items:
+            if not cost_item.is_consumer_cost_item_removed_for_cycle():
+                cost_item.set_instance_links(self)
+
+    def update_default_product_from_config(self, new_consumer_cost_item: ConsumerCostItem):
+        new_consumer_cost_item.product = self.cost_item_factory.config.default_product
+
+    def update_default_product_from_consumer_cost_item(self,
+                                                       new_consumer_cost_item: ConsumerCostItem,
+                                                       default_product_consumer_cost_item: ConsumerCostItem):
+        new_consumer_cost_item.product = default_product_consumer_cost_item.product
+        new_consumer_cost_item.product_dimensions = default_product_consumer_cost_item.product_dimensions.copy()
+        new_consumer_cost_item.allocation_keys[0] *= default_product_consumer_cost_item.allocation_keys[0]
 
     def visit_for_allocation(self,
                              ignore_cost_as_key: bool,
