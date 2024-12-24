@@ -76,6 +76,10 @@ class CloudCostAllocator(object):
         self.create_consumer_cost_items_from_tags(new_consumer_cost_items, cost_items)
         cost_items.extend(new_consumer_cost_items)
 
+        # Untangle cycles, using upstream list
+        info("Untangling cycles, for date " + self.date_str)
+        cost_items = self.untangle_cycles(cost_items)
+
         # Process default products
         cost_items = self.process_default_products(cost_items,
                                                    default_product_consumer_cost_items,
@@ -119,7 +123,7 @@ class CloudCostAllocator(object):
                   ", for date " + self.date_str)
         cost_items = cleansed_cost_items
 
-        # Break cycles
+        # Break cycles, using precedence list
         # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
         info("Breaking cycles, for date " + self.date_str)
         if not self.break_cycles(cost_items):
@@ -185,7 +189,7 @@ class CloudCostAllocator(object):
         config = self.cost_item_factory.config.config
         service_precedence_list = []
         if 'Cycles' in config and 'ServicePrecedenceList' in config['Cycles']:
-            for service in config['Cycles']['ServicePrecedenceList'].split(","):
+            for service in config['Cycles']['ServicePrecedenceList'].replace("\n", "").split(","):
                 service_precedence_list.append(service.strip().lower())
 
         # Get max cycle breaks
@@ -552,6 +556,79 @@ class CloudCostAllocator(object):
         new_consumer_cost_item.product = default_product_consumer_cost_item.product
         new_consumer_cost_item.product_dimensions = default_product_consumer_cost_item.product_dimensions.copy()
         new_consumer_cost_item.allocation_keys[0] *= default_product_consumer_cost_item.allocation_keys[0]
+
+    def untangle_cycles(self,  cost_items: list[CostItem]):
+
+        # Build untangled services and service ranks
+        config = self.cost_item_factory.config.config
+        untangled_upstream_services = {}
+        untangled_service_ranks = {}
+        untangled_upstream_service_ranks = {}
+        if 'Cycles' in config and 'ServiceUpstreamList' in config['Cycles']:
+            rank = 0
+            for service_upstream in config['Cycles']['ServiceUpstreamList'].replace("\n", "").split(","):
+                service_upstream_split_list = service_upstream.strip().lower().split(":")
+                if len(service_upstream_split_list) != 2:
+                    error("Ignored malformatted item '" + service_upstream +
+                          "' in Configuration [Cycle] ServiceUpstreamList")
+                untangled_service = service_upstream_split_list[0]
+                untangled_upstream_service = service_upstream_split_list[1]
+                untangled_upstream_services[untangled_service] = untangled_upstream_service
+                untangled_service_ranks[untangled_service] = rank
+                untangled_upstream_service_ranks[untangled_upstream_service] = rank
+                rank += 1
+        else:
+            # No service upstream list: nothing to do
+            return cost_items
+
+        # Build new cost items
+        new_cost_items = []
+        for cost_item in cost_items:
+            new_cost_item = cost_item  # Default
+
+            # Check whether it's a consumer cost item
+            provider_service = cost_item.get_provider_service()
+            if provider_service:
+
+                # Cycle untangling logic:
+                # If A with upstream A' precedes B in the service upstream list, then
+                # - A is replaced by A' as consumer of B
+                # - A is replaced by A' as consumer of B'
+                # - B is removed as consumer of A'
+
+                # Check if consumer service has upstream
+                untangled_service_rank = untangled_service_ranks.get(cost_item.service)
+                if untangled_service_rank is not None:
+
+                    # Check case: - A is replaced by A' as consumer of B (untangled_service_rank is A)
+                    untangled_provider_service_rank = untangled_service_ranks.get(provider_service)
+                    if untangled_provider_service_rank is not None:
+                        if untangled_service_rank < untangled_provider_service_rank:  # A precedes B
+                            # A is replaced by A'
+                            new_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                            new_cost_item.copy(cost_item)
+                            new_cost_item.service = untangled_upstream_services.get(cost_item.service)
+                    else:
+                        # Check case: - A is replaced by A' as consumer of B' (untangled_service_rank is A)
+                        untangled_upstream_provider_service_rank =\
+                            untangled_upstream_service_ranks.get(provider_service)
+                        if untangled_upstream_provider_service_rank is not None:
+                            if untangled_service_rank < untangled_upstream_provider_service_rank:  # A precedes B
+                                # A is replaced by A'
+                                new_cost_item = self.cost_item_factory.create_consumer_cost_item()
+                                new_cost_item.copy(cost_item)
+                                new_cost_item.service = untangled_upstream_services.get(cost_item.service)
+                            else:
+                                # Case: - B is removed as consumer of A' (untangled_service_rank is B)
+                                # A precedes B
+                                # B is removed
+                                new_cost_item = None
+
+            # Append new consumer cost item
+            if new_cost_item is not None:
+                new_cost_items.append(new_cost_item)
+
+        return new_cost_items
 
     def visit_for_allocation(self,
                              ignore_cost_as_key: bool,

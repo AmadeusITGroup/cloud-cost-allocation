@@ -93,14 +93,21 @@ Keep calm and drink coffee.
     * Reporting the two is useful to investigate whether cost variations come from commitment management or something else
     * Reporting the two is also useful for service owners and product managers alike to see the savings made thanks to the commitment-based purchases
     * Commitment savings = On-demand costs - amortized costs
-9. Cycles in the cost allocation can be broken by providing a *service precedence list*
-    * Example: A monitoring system *M* running on top of a container service *C* is also used by the container service itself
-        * In this case, part of the costs of *M* should be assigned back to *C*
-        * Since the costs of *C* are allocated to *M* (in part), this creates a loop
-        * This cost allocation cycle *C* -> *M* -> *C* can be broken by specifying a precedence list *C,M*. In this case, *C* is allocated no cost from *M*
-    * As another example, see `test5` 
-    * The cost allocation could manage cycles in a more sophisticated way in the future
-10. As a general rule, the names of all model objects (products, services, instances, tags, ...) are normalized to lower case, in order avoid low-high case mistakes
+9. Cycles in the cost allocation can be broken thanks to a *service precedence list*
+    * For example, a monitoring system *M* runs on a container service *C*; *M* is used by *C* for its own monitoring
+        * As *M* runs on *C*, some costs of *C* are allocated to *M*
+        * As *C* uses *M*, some costs of *M* are allocated to *C*
+        * The cost allocation cycle *C* -> *M* -> *C* can be broken by a precedence list *C,M*
+        * The precedence list *C,M* specifies that *C* precedes *M*, so only *C* can allocate costs to *M*, not the reverse
+    * See `test5`
+10. Simple cycles like *A* -> *B* -> *A* can be untangled thanks to a *service upstream list*
+    * The principle is to introduce upstream services to allocate the costs in the order specified by the list
+    * The upstream list *A:A-upstream,B:B-upstream* untangles the cycle *A* -> *B* -> *A* into *A* -> *B* -> *A-upstream*
+    * The cost allocation keys of upstream services must be provided. They can be the same as the original services
+    * The untangling logic is documented in the code
+    * Untangling more complex cycles, like A -> B -> C -> A, is technically possible, but it would require the detection of their actual existence, which implies a too long run-time in practice
+    * See `test9`
+11. As a general rule, the names of all model objects (products, services, instances, tags, ...) are normalized to lower case, in order avoid low-high case mistakes
 
 ## Bittersweet ways for a service to allocate its cost
 
@@ -236,8 +243,12 @@ UnusedSavingsPlanComponent = savings-plan
 [Cycles]
 
 # The precedence list for breaking cost allocation cycles
-# Here, the cycle a -> b -> d ->a will be broken to a -> b -> d (cost allocation d -> a is removed)
+# For example here, the cycle a -> b -> d -> a will be broken to a -> b -> d (cost allocation d -> a is removed)
 ServicePrecedenceList = a,b,c
+
+# The upstream list for entangling simple cost allocation cycles
+# For example here, the cycle a -> b -> a will be untangled to a -> b -> a-ups
+ServiceUpstreamList = a:a-ups,b:b-ups
 
 # The maximum number of cycles to break, as a safe guard to avoid programming loops or
 # unexpected long execution time
