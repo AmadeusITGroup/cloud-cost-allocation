@@ -495,10 +495,7 @@ class CloudCostAllocator(object):
                     default_product_allocation_key_ratio =\
                         default_product_consumer_cost_item.allocation_keys[0] / default_product_total_keys
                     for provider_meter in new_consumer_cost_item.provider_meters:
-                        if "Value" in provider_meter:
-                            value = provider_meter["Value"]
-                            if is_float(value):
-                                provider_meter["Value"] = str(float(value) * default_product_allocation_key_ratio)
+                        provider_meter.value *= default_product_allocation_key_ratio
                     self.update_default_product_from_consumer_cost_item(new_consumer_cost_item,
                                                                         default_product_consumer_cost_item)
                     new_consumer_cost_item.allocation_keys[0] /= default_product_total_keys

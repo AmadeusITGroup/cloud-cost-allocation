@@ -9,6 +9,7 @@ from cloud_cost_allocation.writer.base_writer import GenericWriter
 
 from cloud_cost_allocation.utils import utils
 
+from logging import error
 
 class CSV_AllocatedCostWriter(GenericWriter):
     '''
@@ -141,10 +142,10 @@ class CSV_AllocatedCostWriter(GenericWriter):
         if self.config.nb_provider_meters:
             for i in range(1, self.config.nb_provider_meters + 1):
                 meter = cost_item.provider_meters[i-1]
-                if meter:
-                    data['ProviderMeterName%s' % i] = meter['Name']
-                    data['ProviderMeterUnit%s' % i] = meter['Unit']
-                    data['ProviderMeterValue%s' % i] = meter['Value']
+                data['ProviderMeterName%s' % i] = meter.name
+                data['ProviderMeterUnit%s' % i] = meter.unit
+                if meter.name:
+                    data['ProviderMeterValue%s' % i] = str(meter.value)
 
         # Product
         data['Product'] = cost_item.product
@@ -153,24 +154,24 @@ class CSV_AllocatedCostWriter(GenericWriter):
             # Product dimensions
             if self.config.nb_product_dimensions:
                 for i in range(1, self.config.nb_product_dimensions + 1):
-                    dimension = cost_item.product_dimensions[i-1]
-                    if dimension:
-                        data['ProductDimensionName%s' % i] = dimension['Name']
-                        data['ProductDimensionElement%s' % i] = dimension['Element']
+                    product_dimension = cost_item.product_dimensions[i-1]
+                    data['ProductDimensionName%s' % i] = product_dimension.name
+                    data['ProductDimensionElement%s' % i] = product_dimension.element
 
             # Product meters
             if self.config.nb_product_meters:
                 for i in range(1, self.config.nb_product_meters + 1):
                     meter = cost_item.product_meters[i-1]
-                    if meter:
-                        if i == 1:
-                            data['ProductMeterName'] = meter['Name']
-                            data['ProductMeterUnit'] = meter['Unit']
-                            data['ProductMeterValue'] = meter['Value']
-                        else:
-                            data['ProductMeterName%s' % i] = meter['Name']
-                            data['ProductMeterUnit%s' % i] = meter['Unit']
-                            data['ProductMeterValue%s' % i] = meter['Value']
+                    if i == 1:
+                        data['ProductMeterName'] = meter.name
+                        data['ProductMeterUnit'] = meter.unit
+                        if meter.name:
+                            data['ProductMeterValue'] = str(meter.value)
+                    else:
+                        data['ProductMeterName%s' % i] = meter.name
+                        data['ProductMeterUnit%s' % i] = meter.unit
+                        if meter.name:
+                            data['ProductMeterValue%s' % i] = str(meter.value)
 
             # Product amounts
             index = 0
