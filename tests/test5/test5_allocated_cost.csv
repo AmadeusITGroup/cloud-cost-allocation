@@ -1,7 +1,7 @@
-Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption,ProductInfo
-2022-04-15,a,a,"service:a,cloud_resource_id:resourceid1,",90.0,90.0,EUR,,,,,,,,,,az,N,
-2022-04-15,b,b,,40.0,40.0,EUR,a,a,,Key,4.0,,,,,,N,
-2022-04-15,c,c,,50.0,50.0,EUR,a,a,,Key,5.0,,,,,,N,
-2022-04-15,c,c,,10.0,10.0,EUR,b,b,,Key,1.0,,,,,,N,
-2022-04-15,d,d,,30.0,30.0,EUR,b,b,,Key,3.0,,,,,,Y,
-2022-04-15,d,d,,60.0,60.0,EUR,c,c,,Key,4.0,,,,,,Y,
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,ServiceProductAmortizedCost,ServiceProductOnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption,ProductInfo
+2022-04-15,a,a,"service:a,cloud_resource_id:resourceid1,",90.0,90.0,90.0,90.0,EUR,,,,,,,,,,az,N,
+2022-04-15,b,b,,40.0,40.0,40.0,40.0,EUR,a,a,,Key,4.0,,,,,,N,
+2022-04-15,c,c,,50.0,50.0,50.0,50.0,EUR,a,a,,Key,5.0,,,,,,N,
+2022-04-15,c,c,,10.0,10.0,10.0,10.0,EUR,b,b,,Key,1.0,,,,,,N,
+2022-04-15,d,d,,30.0,30.0,30.0,30.0,EUR,b,b,,Key,3.0,,,,,,Y,
+2022-04-15,d,d,,60.0,60.0,60.0,60.0,EUR,c,c,,Key,4.0,,,,,,Y,

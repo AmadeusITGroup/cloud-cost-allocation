@@ -9,7 +9,6 @@ from cloud_cost_allocation.writer.base_writer import GenericWriter
 
 from cloud_cost_allocation.utils import utils
 
-from logging import error
 
 class CSV_AllocatedCostWriter(GenericWriter):
     '''
@@ -31,8 +30,12 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'Tags',
             ]
 
-        # Add amounts and product amounts
+        # Add amounts
         headers.extend(self.config.amounts)
+
+        # Add service product amounts
+        for amount in self.config.amounts:
+            headers.extend(['ServiceProduct' + amount])
 
         # Add provider info
         headers.extend([
@@ -108,7 +111,14 @@ class CSV_AllocatedCostWriter(GenericWriter):
             data[amount] = str(cost_item.amounts[index])
             index += 1
 
+        # Add service product amounts
+        index = 0
+        for amount in self.config.amounts:
+            data['ServiceProduct' + amount] = str(cost_item.get_unallocated_product_amount(index))
+            index += 1
+
         return data
+
 
     def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
 

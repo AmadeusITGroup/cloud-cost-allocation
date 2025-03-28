@@ -149,6 +149,8 @@ class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
         return data
 
     def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
+        for i in range(len(cost_item.unallocated_product_amounts)):
+            cost_item.unallocated_product_amounts[i] = round(cost_item.unallocated_product_amounts[i], 4)
         for i in range(len(cost_item.product_amounts)):
             cost_item.product_amounts[i] = round(cost_item.product_amounts[i], 4)
         data = super().export_item_consumer(cost_item, service_instance)
