@@ -5,7 +5,6 @@ Created on 20.04.2022
 '''
 
 from logging import error
-import re
 
 from cloud_cost_allocation.cost_items import ConsumerCostItem, CostItemFactory
 from cloud_cost_allocation.reader.base_reader import GenericReader
@@ -21,6 +20,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
         super().__init__(cost_item_factory)
 
     def read_item(self, line) -> ConsumerCostItem:
+
+        # Get config
+        config = self.cost_item_factory.config
 
         # Create consumer cost item
         consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
@@ -43,7 +45,7 @@ class CSV_CostAllocationKeysReader(GenericReader):
         if "ProviderTagSelector" in line:
             consumer_cost_item.provider_tag_selector = line["ProviderTagSelector"].lower()
 
-        # Provider cost allocation type and related fields
+        # Get provider cost allocation type and related items
         consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
         if 'ProviderCostAllocationType' in line:
             consumer_cost_item.provider_cost_allocation_type = line['ProviderCostAllocationType']
@@ -55,56 +57,47 @@ class CSV_CostAllocationKeysReader(GenericReader):
                       "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                 return None
         if consumer_cost_item.provider_cost_allocation_type in ['Key', 'DefaultProduct']:
-            if 'ProviderCostAllocationKey' in line:
-                key_str = line['ProviderCostAllocationKey']
-                if utils.is_float(key_str):
-                    consumer_cost_item.allocation_keys[0] = float(key_str)
-            if consumer_cost_item.allocation_keys[0] == 0.0:
-                error("Skipping cost allocation key line with non-float " +
-                      " ProviderCostAllocationKey: '" + key_str + "'" +
-                      " for ProviderService '" + consumer_cost_item.provider_service + "'")
-                return None
+            allocation_key_index = 0
+            for allocation_key in config.allocation_keys:
+                if allocation_key in line and line[allocation_key]:
+                    key_value = 0.0
+                    key_str = line[allocation_key]
+                    if utils.is_float(key_str):
+                        key_value = float(key_str)
+                    else:
+                        error("Skipping cost allocation key line with non-float " + allocation_key + ": '" + key_str + "'" +
+                              " for ProviderService '" + consumer_cost_item.provider_service + "'")
+                        return None
+                    if key_value != 0.0:
+                        consumer_cost_item.allocation_keys[allocation_key_index] = key_value
+                    else:
+                        error("Skipping cost allocation key line with null " + allocation_key + ": '" + key_str + "'" +
+                              " for ProviderService '" + consumer_cost_item.provider_service + "'")
+                        return None
+                allocation_key_index += 1
         elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
             if 'ProviderCostAllocationCloudTagSelector' in line:
                 consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
                     line['ProviderCostAllocationCloudTagSelector']
 
-        # Further allocation keys
-        config = self.cost_item_factory.config
-        if config.nb_allocation_keys > 1:
-            key_index = 1
-            for further_allocation_key in config.allocation_keys[1:]:
-                if further_allocation_key in line and line[further_allocation_key]:
-                    key_str = line[further_allocation_key]
-                    if utils.is_float(key_str):
-                        consumer_cost_item.allocation_keys[key_index] = float(key_str)
-                key_index += 1
-
         # Provider meters
         if config.nb_provider_meters:
             for i in range(1, config.nb_provider_meters + 1):
-                provider_meter_name = None
-                provider_meter_unit = None
-                provider_meter_value = None
+                provider_meter = consumer_cost_item.provider_meters[i-1]
                 if 'ProviderMeterName%d' % i in line:
-                    provider_meter_name = line['ProviderMeterName%d' % i].lower()
+                    provider_meter.name = line['ProviderMeterName%d' % i].lower()
                 if 'ProviderMeterUnit%d' % i in line:
-                    provider_meter_unit = line['ProviderMeterUnit%d' % i].lower()
-                if 'ProviderMeterValue%d' % i in line:
-                    provider_meter_value_column = 'ProviderMeterValue%d' % i
+                    provider_meter.unit = line['ProviderMeterUnit%d' % i].lower()
+                provider_meter_value_column = 'ProviderMeterValue%d' % i
+                if provider_meter_value_column in line:
                     provider_meter_value = line[provider_meter_value_column]
-                    if provider_meter_value and not utils.is_float(provider_meter_value):
-                        error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
-                              "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
-                              "is not a float")
-                        provider_meter_value = None
-                if provider_meter_name or provider_meter_unit or provider_meter_value:
-                    provider_meter = {
-                        'Name': provider_meter_name,
-                        'Unit': provider_meter_unit,
-                        'Value': provider_meter_value,
-                    }
-                    consumer_cost_item.provider_meters[i-1] = provider_meter
+                    if provider_meter_value:
+                        if utils.is_float(provider_meter_value):
+                            provider_meter.value = float(provider_meter_value)
+                        else:
+                            error("Value '" + provider_meter_value + "' of '" + provider_meter_value_column +
+                                  "' of ProviderService '" + consumer_cost_item.provider_service + "'" +
+                                  "is not a float")
 
         # Consumer tags
         if 'ConsumerTags' in line:
@@ -135,58 +128,40 @@ class CSV_CostAllocationKeysReader(GenericReader):
         # Product dimensions
         if config.nb_product_dimensions:
             for i in range(1, config.nb_product_dimensions + 1):
+                product_dimension = consumer_cost_item.product_dimensions[i - 1]
                 product_dimension_name_column = "ProductDimensionName%d" % i
                 if product_dimension_name_column in line:
-                    product_dimension_name = line[product_dimension_name_column].lower()
-                else:
-                    product_dimension_name = None
+                    product_dimension.name = line[product_dimension_name_column].lower()
                 product_dimension_element_column = "ProductDimensionElement%d" % i
                 if product_dimension_element_column in line:
-                    product_dimension_element = line[product_dimension_element_column].lower()
-                else:
-                    product_dimension_element = None
-                if product_dimension_name or product_dimension_element:
-                    product_dimension = {
-                        'Name': product_dimension_name,
-                        'Element': product_dimension_element,
-                    }
-                    consumer_cost_item.product_dimensions[i-1] = product_dimension
+                    product_dimension.element = line[product_dimension_element_column].lower()
 
         # Product meters
         if config.nb_product_meters:
             for i in range(1, config.nb_product_meters + 1):
+                product_meter = consumer_cost_item.product_meters[i - 1]
                 product_meter_name_column = "ProductMeterName"
                 if i > 1:
                     product_meter_name_column += str(i)
                 if product_meter_name_column in line:
-                    product_meter_name = line[product_meter_name_column].lower()
-                else:
-                    product_meter_name = None
+                    product_meter.name = line[product_meter_name_column].lower()
                 product_meter_unit_column = "ProductMeterUnit"
                 if i > 1:
                     product_meter_unit_column += str(i)
                 if product_meter_unit_column in line:
-                    product_meter_unit = line[product_meter_unit_column].lower()
-                else:
-                    product_meter_unit = None
-                product_meter_value = None
+                    product_meter.unit = line[product_meter_unit_column].lower()
                 product_meter_value_column = "ProductMeterValue"
                 if i > 1:
                     product_meter_value_column += str(i)
                 if product_meter_value_column in line:
                     product_meter_value = line[product_meter_value_column]
-                    if product_meter_value and not utils.is_float(product_meter_value):
-                        error("Value '" + product_meter_value + "' of '" + product_meter_value_column +
-                              "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
-                              "is not a float")
-                        product_meter_value = None
-                if product_meter_name or product_meter_unit or product_meter_value:
-                    product_meter = {
-                        'Name': product_meter_name,
-                        'Unit': product_meter_unit,
-                        'Value': product_meter_value,
-                    }
-                    consumer_cost_item.product_meters[i-1] = product_meter
+                    if product_meter_value:
+                        if utils.is_float(product_meter_value):
+                            product_meter.value = float(product_meter_value)
+                        else:
+                            error("Value '" + product_meter_value + "' of '" + product_meter_value_column +
+                                  "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                                  "is not a float")
 
         # Set default values for service and instance
         if not consumer_cost_item.service:

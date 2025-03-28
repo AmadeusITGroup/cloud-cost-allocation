@@ -30,13 +30,7 @@ class Config(object):
         'allocation_keys',                       # type: list[str]
         'nb_allocation_keys',                    # type: int
         'amount_to_allocation_key_indexes',      # type: dict[int]
-                                                 # Dictionary key is amount index, with:
-                                                 # - 0 = AmortizedCost
-                                                 # - 1 = OnDemandCost
-                                                 # - 2,3,4... = further amounts
-                                                 # Dictionary value is allocation key index, with:
-                                                 # - 0 = ProviderCostAllocationKey
-                                                 # - 1,2,3 ... = further allocation keys
+                                                 # Key is amount index, value is allocation key index
         'nb_provider_meters',                    # type: int
         'nb_product_dimensions',                 # type: int
         'nb_product_meters',                     # type: int
@@ -126,31 +120,31 @@ class Config(object):
             self.consumer_dimension_tag_keys[dimension] = current_consumer_dimension_tag_keys
 
         # Amounts
-        self.amounts = ['AmortizedCost', 'OnDemandCost']
-        if 'FurtherAmounts' in self.config and 'Amounts' in self.config['FurtherAmounts']:
-            for further_amount in self.config['FurtherAmounts']['Amounts'].split(","):
-                self.amounts.append(further_amount.strip())
+        self.amounts = []
+        if 'General' in self.config and 'Amounts' in self.config['General']:
+            for amount in self.config['General']['Amounts'].split(","):
+                self.amounts.append(amount.strip())
         self.nb_amounts = len(self.amounts)
 
         # Allocation keys
-        self.allocation_keys = ['ProviderCostAllocationKey']
-        if 'FurtherAmounts' in self.config and 'AllocationKeys' in self.config['FurtherAmounts']:
-            for further_allocation_key in self.config['FurtherAmounts']['AllocationKeys'].split(","):
-                self.allocation_keys.append(further_allocation_key.strip())
+        self.allocation_keys = []
+        if 'General' in self.config and 'AllocationKeys' in self.config['General']:
+            for allocation_key in self.config['General']['AllocationKeys'].split(","):
+                self.allocation_keys.append(allocation_key.strip())
         self.nb_allocation_keys = len(self.allocation_keys)
 
         # Amount to allocation key indexes
-        self.amount_to_allocation_key_indexes = {0: 0, 1: 0}
-        if 'FurtherAmounts' in config and 'AmountAllocationKeys' in config['FurtherAmounts']:
-            for further_amount_allocation_key in config['FurtherAmounts']['AmountAllocationKeys'].split(","):
-                if further_amount_allocation_key:
-                    match = re.match("([^:]+):([^:]*)", further_amount_allocation_key)
+        self.amount_to_allocation_key_indexes = {}
+        if 'General' in config and 'AmountAllocationKeys' in config['General']:
+            for amount_allocation_key in config['General']['AmountAllocationKeys'].split(","):
+                if amount_allocation_key:
+                    match = re.match("([^:]+):([^:]*)", amount_allocation_key)
                     if match:
                         amount = match.group(1).strip()
                         if amount in self.amounts:
                             amount_index = self.amounts.index(amount)
                         else:
-                            error("Further amount '" + amount +
+                            error("Amount '" + amount +
                                   "' present in AmountAllocationKeys is missing in Amounts")
                             continue
                         allocation_key = match.group(2).strip()
@@ -162,7 +156,7 @@ class Config(object):
                             continue
                         self.amount_to_allocation_key_indexes[amount_index] = allocation_key_index
                     else:
-                        error("Unexpected AmountAllocationKeys format: '" + further_amount_allocation_key + "'")
+                        error("Unexpected AmountAllocationKeys format: '" + amount_allocation_key + "'")
                         continue
 
         # Defensive check: every amount should have an allocation key

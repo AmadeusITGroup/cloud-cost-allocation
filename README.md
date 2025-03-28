@@ -36,8 +36,7 @@ Furthermore, this also allows service owners to easily identify their main cost 
 | *Instance*            | A running instance or a deployment of a service. If we think of *Services* as *Classes* in object-oriented programming, then *Instances* would be the *Objects*. |
 | *Dimension*           | An optional dimension in the cost allocation, for example an environment like Test or Production, or a component in the architecture of the service.             |
 | *Meter*               | A meter that measures the functional activity or throughput of a service or of a product.                                                                        |
-| *Amortized Cost*      | The billing cost incremented with the amortized cost of the commitment-based purchases (reservations, saving plans).                                             |
-| *On-demand Cost*      | The equivalent on-demand cost, i.e. as if no commitment-based purchase had been made.                                                                            |
+| *Amount*              | An amount, to be processed in the allocation, for example *Amortized Cost* or *On-demand Cost*                                                                   |
 | *Cost Item*           | A cost that is either coming from cloud provider billing or allocated by a provider service.                                                                     |
 | *Cost Allocation Key* | A numerical value to allocate a share of a cost. Cost share = cost * key / total keys.                                                                           |
 
@@ -89,10 +88,7 @@ Keep calm and drink coffee.
     * This ensures that there is no double counting of costs at product level
     * Assuming that all cloud resources are properly tagged and that services eventually allocate all their costs to products, then the costs of all cloud resources must be equal to the cost of all products
         * Similarly, the costs of a product that exclusively uses a single service would be equal to the total cost of that service
-8. On-demand costs and amortized costs are supported in parallel by the model
-    * Reporting the two is useful to investigate whether cost variations come from commitment management or something else
-    * Reporting the two is also useful for service owners and product managers alike to see the savings made thanks to the commitment-based purchases
-    * Commitment savings = On-demand costs - amortized costs
+8. Different types of costs, generically called *amounts*, are supported in the allocation. Actually, *amounts* are not limited to costs, but can be for example carbon emissions
 9. Cycles in the cost allocation can be broken thanks to a *service precedence list*
     * For example, a monitoring system *M* runs on a container service *C*; *M* is used by *C* for its own monitoring
         * As *M* runs on *C*, some costs of *C* are allocated to *M*
@@ -117,7 +113,7 @@ Three alternatives exist to this, and they should be used carefully:
     * While providing an easy way to dynamically allocate costs, it does not offer any means to track usage and thus provides no hint to consumers on what drives their costs (black box)
     * See section *Consumer service and product tags* for details
 2. Use specific *cost allocation type* in cost allocation data
-    * E.g. to allocate a cost share proportional to the amortized costs of the consumers
+    * E.g. to allocate a cost share proportional to the costs of the consumers
     * See section *Cost allocation types in cost allocation data* below for details
 3. Use a static cost allocation file
     * Instead of generating and using accurate consumption data, a static approach (potentially updated at certain intervals) might be sufficient in some cases and in crawl phase
@@ -146,9 +142,9 @@ Three other types of cost allocation are supported:
     * This type of cost allocation is convenient to allocate costs to consumer services that run directly on the cloud proportionally to their cloud costs
     * See example in the test `test3`
 2. *'Cost'*
-    * The cost is allocated to the consumer services proportionally to their amortized costs
-    * Technically, amortized costs are globally allocated to service instances in a first time, while ignoring this type of cost allocation
-    * The amortized costs resulting from this cost allocation are used in a second pass as cost allocation keys to perform the actual cost allocation
+    * The cost is allocated to the consumer services proportionally to their own costs
+    * Technically, costs are globally allocated to service instances in a first time, while ignoring this type of cost allocation
+    * The costs resulting from this cost allocation are used in a second pass as cost allocation keys to perform the actual cost allocation
     * Although this type of cost allocation is convenient to avoid bothering about cost allocation keys, it can produce results that are hardly predictable and understandable, depending on the complexity of the global cost allocation graph
     * See example in the test `test3`
 3. *'DefaultProduct'*
@@ -160,17 +156,16 @@ Examples of *'CloudTagSelector'* and *'Cost'* cost allocation types are availabl
 
 In theory, an even more general type of cost allocation could be considered:
 - *'ConsumerTagSelector'*
-    * Cost would be allocated to service instances whose cost items match the *ProviderCostAllocationConsumerTagSelector* expression proportionally to their amortized costs
+    * Cost would be allocated to service instances whose cost items match the *ProviderCostAllocationConsumerTagSelector* expression proportionally to their costs
     * While being more generic, this type of cost allocation can be even less predictable
     * This type of cost allocation has not been required and thus not implemented yet
 
-### Allocation of further amounts [experimental]
+### Allocation of further amounts
 
-After cost allocation, custom amounts, which are called *further amounts*, can be allocated.
+After the initial cost allocation, *further amounts* can be allocated in-place in the allocated cost items.
 Examples of *further amounts* are CO2 and electricity power.
 The *further amounts* to allocate must be first loaded into the cost items, before the allocation is run for them.
-The *further amounts* can be loaded into cloud cost items, or even into consumer cost items: in both cases, the further amounts are allocated along the cost allocation graph.
-Custom allocation keys can be used to allocate *further amounts*.
+The *further amounts* can be loaded into cloud cost items, or even into consumer cost items: in both cases, the further amounts are allocated to other cost items by following the cost allocation consumption hierarchy.
 
 ### Configuration
 
@@ -178,6 +173,15 @@ Python `configparser` is used to manage the configuration. Here are the configur
 
 ```
 [General]
+
+# The amounts to allocate
+Amounts = AmortizedCost,OndemandCost,Co2,ElectricityPower
+
+# Allocation keys to be used for the allocation
+AllocationKeys = ProviderCostAllocationKey,Co2Key
+
+# The allocation keys to use for the allocation of amounts
+AmountAllocationKeys = AmortizedCost:ProviderCostAllocationKey,OndemandCost:ProviderCostAllocationKey,Co2:Co2Key,ElectricityPower:ProviderCostAllocationKey
 
 # The date format, which is used both in input cost allocation data and output allocated cost data
 # The format uses Python datetime syntax
@@ -253,17 +257,6 @@ ServiceUpstreamList = a:a-ups,b:b-ups
 # The maximum number of cycles to break, as a safe guard to avoid programming loops or
 # unexpected long execution time
 MaxBreaks = 10
-
-[FurtherAmounts]
-
-# Further amounts to allocate
-Amounts = Co2,ElectricityPower
-
-# Allocation keys used for further amounts
-AllocationKeys = Co2Key
-
-# The allocation keys to use for further amounts
-AmountAllocationKeys = Co2:Co2Key,ElectricityPower:ProviderCostAllocationKey
 ```
 
 ## Test

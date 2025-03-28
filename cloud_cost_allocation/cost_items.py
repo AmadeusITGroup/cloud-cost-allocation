@@ -3,12 +3,58 @@
 from abc import ABC, abstractmethod
 from io import StringIO
 from logging import debug, info, error
-import copy
 import re
 import sys
 
 from cloud_cost_allocation.exceptions import CycleException, BreakableCycleException, UnbreakableCycleException
 from cloud_cost_allocation.config import Config
+
+
+class Meter:
+    """
+    Contains meter information
+    """
+
+    __slots__ = (
+        # Fields
+        'name',   # type: str
+        'unit',   # type: str
+        'value',  # type: float
+    )
+
+    def __init__(self):
+        self.name = ""
+        self.unit = ""
+        self.value = 0.0
+
+    def copy(self):
+        meter_copy = Meter()
+        meter_copy.name = self.name
+        meter_copy.unit = self.unit
+        meter_copy.value = self.value
+        return meter_copy
+
+
+class ProductDimension:
+    """
+    Contains meter information
+    """
+
+    __slots__ = (
+        # Fields
+        'name',     # type: str
+        'element',  # type: str
+    )
+
+    def __init__(self):
+        self.name = ""
+        self.element = ""
+
+    def copy(self):
+        product_dimension_copy = ProductDimension()
+        product_dimension_copy.name = self.name
+        product_dimension_copy.element = self.element
+        return product_dimension_copy
 
 
 class CostItem(ABC):
@@ -24,9 +70,6 @@ class CostItem(ABC):
         'dimensions',      # type: dict[str,str]
         'tags',            # type: dict[str,str]
         'amounts',         # type: list[float]
-                           # - 0 is amortized cost
-                           # - 1 is on-demand cost
-                           # - Next are further amounts
         'currency',        # type: str
 
         # Helpers
@@ -67,7 +110,7 @@ class CostItem(ABC):
         # Default behavior, overridden in child classes
         return []
 
-    def get_product_meters(self) -> list[dict[str, str]]:
+    def get_product_meters(self) -> list[Meter]:
         # Default behavior, overridden in child classes
         return []
 
@@ -90,7 +133,7 @@ class CostItem(ABC):
         # Default behavior, overridden in child classes
         return False
 
-    def set_cost_as_key(self, cost: float) -> None:
+    def set_cost_as_key(self, cost: list[float], config: Config) -> None:
         # Default behavior, overridden in child classes
         return
 
@@ -163,15 +206,12 @@ class ConsumerCostItem(CostItem):
                                                         # - 0 is cost allocation key
                                                         # - Next are further allocation keys
         'provider_cost_allocation_cloud_tag_selector',  # type: str
-        'provider_meters',                              # type: list[dict[str,str]]
+        'provider_meters',                              # type: list[Meter]
         'product',                                      # type: str
-        'product_dimensions',                           # type: list[dict[str,str]]
-        'product_meters',                               # type: list[dict[str,str]]
+        'product_dimensions',                           # type: list[ProductDimension]
+        'product_meters',                               # type: list[Meter]
         'product_amounts',                              # type: list[float]
         'unallocated_product_amounts',                  # type: list[float]
-                                                        # - 0 is product amortized cost
-                                                        # - 1 is product on-demand cost
-                                                        # - Next are further amounts
 
         # Helpers
         'is_removed_from_cycle',      # type: bool
@@ -204,10 +244,16 @@ class ConsumerCostItem(CostItem):
         self.allocation_keys = consumer_cost_item.allocation_keys.copy()
         self.provider_cost_allocation_cloud_tag_selector =\
             consumer_cost_item.provider_cost_allocation_cloud_tag_selector
-        self.provider_meters = copy.deepcopy(consumer_cost_item.provider_meters)
+        self.provider_meters = []
+        for provider_meter in consumer_cost_item.provider_meters:
+            self.provider_meters.append(provider_meter.copy())
         self.product = consumer_cost_item.product
-        self.product_dimensions = copy.deepcopy(consumer_cost_item.product_dimensions.copy())
-        self.product_meters = copy.deepcopy(consumer_cost_item.product_meters)
+        self.product_dimensions = []
+        for product_dimension in consumer_cost_item.product_dimensions:
+            self.product_dimensions.append(product_dimension.copy())
+        self.product_meters = []
+        for product_meter in consumer_cost_item.product_meters:
+            self.product_meters.append(product_meter.copy())
 
     def get_consumer_cost_item_provider_service_instance(self) -> 'ServiceInstance':
         return self.provider_service_instance
@@ -221,7 +267,7 @@ class ConsumerCostItem(CostItem):
     def get_product_dimensions(self) -> list[dict[str, str]]:
         return self.product_dimensions
 
-    def get_product_meters(self) -> list[dict[str, str]]:
+    def get_product_meters(self) -> list[Meter]:
         return self.product_meters
 
     def get_provider_service(self) -> str:
@@ -234,9 +280,9 @@ class ConsumerCostItem(CostItem):
     def initialize(self, config: Config) -> None:
         super().initialize(config)
         self.allocation_keys = [0.0] * config.nb_allocation_keys
-        self.provider_meters = [{}] * config.nb_provider_meters
-        self.product_dimensions = [{}] * config.nb_product_dimensions
-        self.product_meters = [{}] * config.nb_product_meters
+        self.provider_meters = [Meter() for i in range(config.nb_provider_meters)]
+        self.product_dimensions = [ProductDimension() for i in range(config.nb_product_dimensions)]
+        self.product_meters = [Meter() for i in range(config.nb_product_meters)]
         self.product_amounts = [0.0] * config.nb_amounts
         self.unallocated_product_amounts = [0.0] * config.nb_amounts
 
@@ -246,9 +292,13 @@ class ConsumerCostItem(CostItem):
     def is_self_consumption(self) -> bool:
         return True if self.service == self.provider_service and self.instance == self.provider_instance else False
 
-    def set_cost_as_key(self, cost: float) -> None:
+    def set_cost_as_key(self, cost: list[float], config: Config) -> None:
         if self.provider_cost_allocation_type == "Cost":
-            self.allocation_keys[0] = cost
+            # If an allocation key is used for different amounts, the first amount will be set as key
+            for i in range(config.nb_amounts):
+                amount_index = config.nb_amounts-1-i
+                allocation_key_index = config.amount_to_allocation_key_indexes[amount_index]
+                self.allocation_keys[allocation_key_index] = cost[amount_index]
 
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
         super().set_instance_links(cloud_cost_allocator)
@@ -338,8 +388,8 @@ class ProviderTagSelectorAmountsByProductInfo(object):
 
     __slots__ = (
         'product',                   # type: str
-        'product_dimensions',        # type: list[dict[str, str]]
-        'product_meters',            # type: list[dict[str, str]]
+        'product_dimensions',        # type: list[ProductDimension]
+        'product_meters',            # type: list[Meter]
         'raw_amounts',               # type: list[float]
         'raw_product_amounts',       # type: list[float]
         'adjusted_amounts',          # type: list[float]
@@ -350,7 +400,7 @@ class ProviderTagSelectorAmountsByProductInfo(object):
 
     def __init__(self,
                  product: str,
-                 product_dimensions: list[dict[str, str]],
+                 product_dimensions: list[ProductDimension],
                  product_meters,
                  nb_amounts: int):
         self.product = product
@@ -361,30 +411,23 @@ class ProviderTagSelectorAmountsByProductInfo(object):
         self.adjusted_amounts = [0.0] * nb_amounts
         self.adjusted_product_amounts = [0.0] * nb_amounts
         self.total_keys = [0.0] * nb_amounts
-        self.nb_keys = [0] * nb_amounts
+        self.nb_keys = [0.0] * nb_amounts
 
     @staticmethod
     def get_product_info_id(product: str,
-                            product_dimensions: list[dict[str, str]],
-                            product_meters: list[dict[str, str]]) -> str:
+                            product_dimensions: list[ProductDimension],
+                            product_meters: list[Meter]) -> str:
         product_meter_id = product
         for product_dimension in product_dimensions:
-            product_meter_id += "."
-            if "Name" in product_dimension:
-                product_meter_id += product_dimension["Name"]
-            product_meter_id += "="
-            if "Element" in product_dimension:
-                product_meter_id += product_dimension["Element"]
+            product_meter_id += "." + product_dimension.name + "=" + product_dimension.element
         for product_meter in product_meters:
-            product_meter_id += "."
-            if "Name" in product_meter:
-                product_meter_id += product_meter["Name"]
+            product_meter_id += "." + product_meter.name
         return product_meter_id
 
     def get_affinity_score(self,
                            provider_product: str,
-                           provider_product_dimensions: list[dict[str, str]],
-                           provider_product_meters: list[dict[str, str]]) -> int:
+                           provider_product_dimensions: list[ProductDimension],
+                           provider_product_meters: list[Meter]) -> int:
         
         # Default score
         score = 0
@@ -400,15 +443,12 @@ class ProviderTagSelectorAmountsByProductInfo(object):
                 product_dimension_index = 0
                 for product_dimension in self.product_dimensions:
                     provider_product_dimension = provider_product_dimensions[product_dimension_index]
-                    if len(product_dimension) != 0 and len(provider_product_dimension) != 0:
-                        if product_dimension['Name'] == provider_product_dimension['Name']:
-                            score += 1
-                        else:
-                            break
-                        if product_dimension['Element'] == provider_product_dimension['Element']:
-                            score += 1
-                        else:
-                            break
+                    if product_dimension.name == provider_product_dimension.name:
+                        score += 1
+                    else:
+                        break
+                    if product_dimension.element == provider_product_dimension.element:
+                        score += 1
                     else:
                         break
                     product_dimension_index += 1
@@ -417,11 +457,8 @@ class ProviderTagSelectorAmountsByProductInfo(object):
                 product_meter_index = 0
                 for product_meter in self.product_meters:
                     provider_product_meter = provider_product_meters[product_meter_index]
-                    if len(product_meter) != 0 and len(provider_product_meter) != 0:
-                        if product_meter['Name'] == provider_product_meter['Name']:
-                            score += 1
-                        else:
-                            break
+                    if product_meter.name == provider_product_meter.name:
+                        score += 1
                     else:
                         break
                     product_meter_index += 1
@@ -460,8 +497,8 @@ class ProviderTagSelectorAmounts(object):
 
     def get_or_add_amounts_by_product_info(self,
                                            product: str,
-                                           product_dimensions: list[dict[str, str]],
-                                           product_meters: list[dict[str, str]],
+                                           product_dimensions: list[ProductDimension],
+                                           product_meters: list[Meter],
                                            nb_amounts: int)\
             -> ProviderTagSelectorAmountsByProductInfo:
         product_info_id = \

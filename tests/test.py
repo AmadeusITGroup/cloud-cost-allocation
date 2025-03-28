@@ -136,6 +136,8 @@ class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
+        for i in range(len(cost_item.amounts)):
+            cost_item.amounts[i] = round(cost_item.amounts[i], 4)
         data = super().export_item_base(cost_item, service_instance)
         has_consumer = service_instance.is_provider()
         data['IsFinalConsumption'] = "Y" if not has_consumer or cost_item.is_self_consumption() else "N"
@@ -147,6 +149,10 @@ class TestCsvAllocatedCostWriter(CSV_AllocatedCostWriter):
         return data
 
     def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
+        for i in range(len(cost_item.unallocated_product_amounts)):
+            cost_item.unallocated_product_amounts[i] = round(cost_item.unallocated_product_amounts[i], 4)
+        for i in range(len(cost_item.product_amounts)):
+            cost_item.product_amounts[i] = round(cost_item.product_amounts[i], 4)
         data = super().export_item_consumer(cost_item, service_instance)
         if cost_item.product_info:
             data['ProductInfo'] = cost_item.product_info
@@ -277,7 +283,8 @@ class Test(unittest.TestCase):
         cloud_cost_allocator.date_str = consumer_cost_items[0].date_str
         cloud_cost_allocator.currency = "EUR"
         assert_message = test + ": cost allocation failed"
-        self.assertTrue(cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items), assert_message)
+        self.assertTrue(cloud_cost_allocator.allocate(consumer_cost_items, cloud_cost_items, config.amounts),
+                        assert_message)
 
         # Write allocated costs
         allocated_cost_writer = TestCsvAllocatedCostWriter(cloud_cost_allocator.service_instances, config)

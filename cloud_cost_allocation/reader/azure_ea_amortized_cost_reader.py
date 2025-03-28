@@ -30,33 +30,38 @@ class AzureEaAmortizedCostReader(GenericReader):
         config = self.cost_item_factory.config
         cloud_cost_item.date_str = azure_date.strftime(config.date_format)
 
-        # Set amortized cost (amount with index 0)
+        # Set amortized cost
+        amortized_cost = 0.0
         cost_in_billing_currency = line["CostInBillingCurrency"]
         if utils.is_float(cost_in_billing_currency):
-            cloud_cost_item.amounts[0] = float(cost_in_billing_currency)
+            amortized_cost = float(cost_in_billing_currency)
         else:
             error("CostInBillingCurrency cannot be parsed in line %s", line)
             return None
+        if 'AmortizedCost' in config.amounts:
+            cloud_cost_item.amounts[config.amounts.index('AmortizedCost')] = amortized_cost
 
-        # Compute and set on-demand cost (amount with index 1)
+        # Compute and set on-demand cost
         # https://learn.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
         # https://learn.microsoft.com/en-us/azure/cost-management-billing/savings-plan/utilization-cost-reports
+        on_demand_cost = 0.0
         pricing_model = line["PricingModel"]
         charge_type = line["ChargeType"]
         if pricing_model in ["Reservation", "SavingsPlan"]:
             if charge_type in ["UnusedReservation", "UnusedSavingsPlan"]:
-                cloud_cost_item.cloud_on_demand_cost = 0.0  # Unused commitments are not on-demand costs
+                on_demand_cost = 0.0  # Unused commitments are not on-demand costs
             else:
                 quantity = line["Quantity"]
                 unit_price = line["UnitPrice"]
                 if utils.is_float(quantity) and utils.is_float(unit_price):
-                    cloud_cost_item.amounts[1] = float(quantity) * float(unit_price)
+                    on_demand_cost = float(quantity) * float(unit_price)
                 else:
                     error("Quantity or UnitPrice cannot be parsed in line %s", line)
-                    cloud_cost_item.amounts[1] = 0.0  # Return None?
-
+                    return None
         else:  # No unused commitment: on-demand cost is amortized cost
-            cloud_cost_item.amounts[1] = cloud_cost_item.amounts[0]
+            on_demand_cost = amortized_cost
+        if 'OnDemandCost' in config.amounts:
+            cloud_cost_item.amounts[config.amounts.index('OnDemandCost')] = on_demand_cost
 
         # Set currency
         cloud_cost_item.currency = line["BillingCurrencyCode"]

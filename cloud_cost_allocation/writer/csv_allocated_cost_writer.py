@@ -28,19 +28,36 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'Service',
             'Instance',
             'Tags',
-            'AmortizedCost',
-            'OnDemandCost',
+            ]
+
+        # Add amounts
+        headers.extend(self.config.amounts)
+
+        # Add service product amounts
+        for amount in self.config.amounts:
+            headers.extend(['ServiceProduct' + amount])
+
+        # Add provider info
+        headers.extend([
             'Currency',
             'ProviderService',
             'ProviderInstance',
             'ProviderTagSelector',
             'ProviderCostAllocationType',
-            'ProviderCostAllocationKey',
+            ])
+
+        # Add allocation keys
+        headers.extend(self.config.allocation_keys)
+
+        # Add provider info
+        headers.extend([
             'ProviderCostAllocationCloudTagSelector',
             'Product',
-            'ProductAmortizedCost',
-            'ProductOnDemandCost',
-            ]
+            ])
+
+        # Add product amounts
+        for amount in self.config.amounts:
+            headers.extend(['Product' + amount])
 
         # Add dimensions
         headers.extend(self.config.dimensions)
@@ -70,16 +87,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
                     headers.extend(['ProductMeterUnit%s' % i])
                     headers.extend(['ProductMeterValue%s' % i])
 
-        # Add further amounts and product amounts
-        if self.config.nb_amounts > 2:
-            headers.extend(self.config.amounts[2:])
-            for amount in self.config.amounts[2:]:
-                headers.extend(['Product' + amount])
-
-        # Add further allocation keys
-        if self.config.nb_allocation_keys > 1:
-            headers.extend(self.config.allocation_keys[1:])
-
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
@@ -92,8 +99,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['Service'] = cost_item.service
         data['Instance'] = cost_item.instance
         data['Tags'] = utils.serialize_tags(cost_item.tags)
-        data['AmortizedCost'] = str(cost_item.amounts[0])
-        data['OnDemandCost'] = str(cost_item.amounts[1])
         data['Currency'] = cost_item.currency
 
         # Add dimensions
@@ -106,7 +111,14 @@ class CSV_AllocatedCostWriter(GenericWriter):
             data[amount] = str(cost_item.amounts[index])
             index += 1
 
+        # Add service product amounts
+        index = 0
+        for amount in self.config.amounts:
+            data['ServiceProduct' + amount] = str(cost_item.get_unallocated_product_amount(index))
+            index += 1
+
         return data
+
 
     def export_item_consumer(self, cost_item, service_instance) -> dict[str]:
 
@@ -125,9 +137,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
         # Provider cost allocation type
         data['ProviderCostAllocationType'] = cost_item.provider_cost_allocation_type
 
-        # Provider cost allocation key
-        data['ProviderCostAllocationKey'] = str(cost_item.allocation_keys[0])
-
         # Provider cost allocation keys
         index = 0
         for allocation_key in self.config.allocation_keys:
@@ -141,10 +150,10 @@ class CSV_AllocatedCostWriter(GenericWriter):
         if self.config.nb_provider_meters:
             for i in range(1, self.config.nb_provider_meters + 1):
                 meter = cost_item.provider_meters[i-1]
-                if meter:
-                    data['ProviderMeterName%s' % i] = meter['Name']
-                    data['ProviderMeterUnit%s' % i] = meter['Unit']
-                    data['ProviderMeterValue%s' % i] = meter['Value']
+                data['ProviderMeterName%s' % i] = meter.name
+                data['ProviderMeterUnit%s' % i] = meter.unit
+                if meter.name:
+                    data['ProviderMeterValue%s' % i] = str(meter.value)
 
         # Product
         data['Product'] = cost_item.product
@@ -153,24 +162,24 @@ class CSV_AllocatedCostWriter(GenericWriter):
             # Product dimensions
             if self.config.nb_product_dimensions:
                 for i in range(1, self.config.nb_product_dimensions + 1):
-                    dimension = cost_item.product_dimensions[i-1]
-                    if dimension:
-                        data['ProductDimensionName%s' % i] = dimension['Name']
-                        data['ProductDimensionElement%s' % i] = dimension['Element']
+                    product_dimension = cost_item.product_dimensions[i-1]
+                    data['ProductDimensionName%s' % i] = product_dimension.name
+                    data['ProductDimensionElement%s' % i] = product_dimension.element
 
             # Product meters
             if self.config.nb_product_meters:
                 for i in range(1, self.config.nb_product_meters + 1):
                     meter = cost_item.product_meters[i-1]
-                    if meter:
-                        if i == 1:
-                            data['ProductMeterName'] = meter['Name']
-                            data['ProductMeterUnit'] = meter['Unit']
-                            data['ProductMeterValue'] = meter['Value']
-                        else:
-                            data['ProductMeterName%s' % i] = meter['Name']
-                            data['ProductMeterUnit%s' % i] = meter['Unit']
-                            data['ProductMeterValue%s' % i] = meter['Value']
+                    if i == 1:
+                        data['ProductMeterName'] = meter.name
+                        data['ProductMeterUnit'] = meter.unit
+                        if meter.name:
+                            data['ProductMeterValue'] = str(meter.value)
+                    else:
+                        data['ProductMeterName%s' % i] = meter.name
+                        data['ProductMeterUnit%s' % i] = meter.unit
+                        if meter.name:
+                            data['ProductMeterValue%s' % i] = str(meter.value)
 
             # Product amounts
             index = 0
