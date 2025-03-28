@@ -21,6 +21,9 @@ class CSV_CostAllocationKeysReader(GenericReader):
 
     def read_item(self, line) -> ConsumerCostItem:
 
+        # Get config
+        config = self.cost_item_factory.config
+
         # Create consumer cost item
         consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
 
@@ -42,7 +45,7 @@ class CSV_CostAllocationKeysReader(GenericReader):
         if "ProviderTagSelector" in line:
             consumer_cost_item.provider_tag_selector = line["ProviderTagSelector"].lower()
 
-        # Provider cost allocation type and related fields
+        # Get provider cost allocation type and related items
         consumer_cost_item.provider_cost_allocation_type = "Key"  # Default value
         if 'ProviderCostAllocationType' in line:
             consumer_cost_item.provider_cost_allocation_type = line['ProviderCostAllocationType']
@@ -54,31 +57,28 @@ class CSV_CostAllocationKeysReader(GenericReader):
                       "' for ProviderService '" + consumer_cost_item.provider_service + "'")
                 return None
         if consumer_cost_item.provider_cost_allocation_type in ['Key', 'DefaultProduct']:
-            key_str = ""
-            if 'ProviderCostAllocationKey' in line:
-                key_str = line['ProviderCostAllocationKey']
-                if utils.is_float(key_str):
-                    consumer_cost_item.allocation_keys[0] = float(key_str)
-            if consumer_cost_item.allocation_keys[0] == 0.0:
-                error("Skipping cost allocation key line with non-float " +
-                      " ProviderCostAllocationKey: '" + key_str + "'" +
-                      " for ProviderService '" + consumer_cost_item.provider_service + "'")
-                return None
+            allocation_key_index = 0
+            for allocation_key in config.allocation_keys:
+                if allocation_key in line and line[allocation_key]:
+                    key_value = 0.0
+                    key_str = line[allocation_key]
+                    if utils.is_float(key_str):
+                        key_value = float(key_str)
+                    else:
+                        error("Skipping cost allocation key line with non-float " + allocation_key + ": '" + key_str + "'" +
+                              " for ProviderService '" + consumer_cost_item.provider_service + "'")
+                        return None
+                    if key_value != 0.0:
+                        consumer_cost_item.allocation_keys[allocation_key_index] = key_value
+                    else:
+                        error("Skipping cost allocation key line with null " + allocation_key + ": '" + key_str + "'" +
+                              " for ProviderService '" + consumer_cost_item.provider_service + "'")
+                        return None
+                allocation_key_index += 1
         elif consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
             if 'ProviderCostAllocationCloudTagSelector' in line:
                 consumer_cost_item.provider_cost_allocation_cloud_tag_selector = \
                     line['ProviderCostAllocationCloudTagSelector']
-
-        # Further allocation keys
-        config = self.cost_item_factory.config
-        if config.nb_allocation_keys > 1:
-            key_index = 1
-            for further_allocation_key in config.allocation_keys[1:]:
-                if further_allocation_key in line and line[further_allocation_key]:
-                    key_str = line[further_allocation_key]
-                    if utils.is_float(key_str):
-                        consumer_cost_item.allocation_keys[key_index] = float(key_str)
-                key_index += 1
 
         # Provider meters
         if config.nb_provider_meters:

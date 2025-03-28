@@ -1,7 +1,7 @@
-Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Co2,ElectricityPower,ProductCo2,ProductElectricityPower,Co2Key,Cloud,IsFinalConsumption,ProductInfo
-26/09/2023,application1,application1,"""hello\,world"":""hello\:\\nworld"",",80.0,80.0,EUR,container,container,,,80.0,,,,,6.0,0.6,,,60,,N,
-26/09/2023,application1,application1,,64.0,64.0,EUR,application1,application1,,,80.0,,product1,64.0,64.0,4.800000000000001,0.48,4.800000000000001,0.48,80.0,,Y,1
-26/09/2023,application1,application1,,16.0,16.0,EUR,application1,application1,,,20.0,,product2,16.0,16.0,1.2000000000000002,0.12,1.2000000000000002,0.12,20.0,,Y,2
-26/09/2023,application2,application2,,20.0,20.0,EUR,container,container,,,20.0,,,,,4.0,0.4,,,40,,N,
-26/09/2023,application2,application2,,20.0,20.0,EUR,application2,application2,,,1.0,,product3,20.0,20.0,4.0,0.4000000000000001,4.0,0.4000000000000001,1.0,,Y,3
-26/09/2023,container,container,"service:container,cloud_resource_id:/az/virtualmachines/vm1,",100.0,100.0,EUR,,,,,,,,,,10,0.0,,,,az,N,
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,Co2,ElectricityPower,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,Co2Key,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,ProductCo2,ProductElectricityPower,Cloud,IsFinalConsumption,ProductInfo
+26/09/2023,application1,application1,"""hello\,world"":""hello\:\\nworld"",",80.0,80.0,6.0,0.6,EUR,container,container,,,80.0,60,,,,,,,,N,
+26/09/2023,application1,application1,,64.0,64.0,4.8,0.48,EUR,application1,application1,,,80.0,80.0,,product1,64.0,64.0,4.8,0.48,,Y,1
+26/09/2023,application1,application1,,16.0,16.0,1.2,0.12,EUR,application1,application1,,,20.0,20.0,,product2,16.0,16.0,1.2,0.12,,Y,2
+26/09/2023,application2,application2,,20.0,20.0,4.0,0.4,EUR,container,container,,,20.0,40,,,,,,,,N,
+26/09/2023,application2,application2,,20.0,20.0,4.0,0.4,EUR,application2,application2,,,1.0,1.0,,product3,20.0,20.0,4.0,0.4,,Y,3
+26/09/2023,container,container,"service:container,cloud_resource_id:/az/virtualmachines/vm1,",100.0,100.0,10,0.0,EUR,,,,,,,,,,,,,az,N,

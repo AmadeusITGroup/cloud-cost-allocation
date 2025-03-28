@@ -70,9 +70,6 @@ class CostItem(ABC):
         'dimensions',      # type: dict[str,str]
         'tags',            # type: dict[str,str]
         'amounts',         # type: list[float]
-                           # - 0 is amortized cost
-                           # - 1 is on-demand cost
-                           # - Next are further amounts
         'currency',        # type: str
 
         # Helpers
@@ -136,7 +133,7 @@ class CostItem(ABC):
         # Default behavior, overridden in child classes
         return False
 
-    def set_cost_as_key(self, cost: float) -> None:
+    def set_cost_as_key(self, cost: list[float], config: Config) -> None:
         # Default behavior, overridden in child classes
         return
 
@@ -215,9 +212,6 @@ class ConsumerCostItem(CostItem):
         'product_meters',                               # type: list[Meter]
         'product_amounts',                              # type: list[float]
         'unallocated_product_amounts',                  # type: list[float]
-                                                        # - 0 is product amortized cost
-                                                        # - 1 is product on-demand cost
-                                                        # - Next are further amounts
 
         # Helpers
         'is_removed_from_cycle',      # type: bool
@@ -298,9 +292,13 @@ class ConsumerCostItem(CostItem):
     def is_self_consumption(self) -> bool:
         return True if self.service == self.provider_service and self.instance == self.provider_instance else False
 
-    def set_cost_as_key(self, cost: float) -> None:
+    def set_cost_as_key(self, cost: list[float], config: Config) -> None:
         if self.provider_cost_allocation_type == "Cost":
-            self.allocation_keys[0] = cost
+            # If an allocation key is used for different amounts, the first amount will be set as key
+            for i in range(config.nb_amounts):
+                amount_index = config.nb_amounts-1-i
+                allocation_key_index = config.amount_to_allocation_key_indexes[amount_index]
+                self.allocation_keys[allocation_key_index] = cost[amount_index]
 
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
         super().set_instance_links(cloud_cost_allocator)
@@ -413,7 +411,7 @@ class ProviderTagSelectorAmountsByProductInfo(object):
         self.adjusted_amounts = [0.0] * nb_amounts
         self.adjusted_product_amounts = [0.0] * nb_amounts
         self.total_keys = [0.0] * nb_amounts
-        self.nb_keys = [0] * nb_amounts
+        self.nb_keys = [0.0] * nb_amounts
 
     @staticmethod
     def get_product_info_id(product: str,

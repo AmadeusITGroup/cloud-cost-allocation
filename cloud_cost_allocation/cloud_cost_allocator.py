@@ -30,7 +30,12 @@ class CloudCostAllocator(object):
         self.currency = ""
         self.service_instances = {}
 
-    def allocate(self, consumer_cost_items: list[ConsumerCostItem], cloud_cost_items: list[CloudCostItem]) -> bool:
+    def allocate(self, consumer_cost_items: list[ConsumerCostItem],
+                 cloud_cost_items: list[CloudCostItem],
+                 amounts: list[str]) -> bool:
+
+        # Get config
+        config = self.cost_item_factory.config
 
         # Date and currency must be defined
         if not self.date_str:
@@ -57,10 +62,12 @@ class CloudCostAllocator(object):
                 provider_service = consumer_cost_item.provider_service
                 if provider_service in default_product_consumer_cost_items:
                     default_product_consumer_cost_items[provider_service].append(consumer_cost_item)
-                    default_product_allocation_keys[provider_service] += consumer_cost_item.allocation_keys[0]
                 else:
                     default_product_consumer_cost_items[provider_service] = [consumer_cost_item]
-                    default_product_allocation_keys[provider_service] = consumer_cost_item.allocation_keys[0]
+                    default_product_allocation_keys[provider_service] = [0.0] * config.nb_allocation_keys
+                provider_service_default_product_allocation_keys = default_product_allocation_keys[provider_service]
+                for i in range(config.nb_allocation_keys):
+                    provider_service_default_product_allocation_keys[i] += consumer_cost_item.allocation_keys[i]
             else:
                 if consumer_cost_item.provider_cost_allocation_type == "Cost":
                     is_cost_used_as_cost_allocation_type = True
@@ -136,26 +143,25 @@ class CloudCostAllocator(object):
         try:
 
             # Build amount allocation key indexes dictionary
-            amounts = ['AmortizedCost', 'OnDemandCost']
             amount_to_allocation_key_indexes = {}
-            config = self.cost_item_factory.config
             if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
                 return False
 
-            # Compute service amortized cost, ignoring the keys that are using cost, and then
+            # Allocate costs, ignoring the keys that are using cost, and then
             # set these keys from the allocated cost
             if is_cost_used_as_cost_allocation_type:  # Save run time if not needed
                 info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
                 self.visit_for_allocation(True, False, amount_to_allocation_key_indexes)
                 for service_instance in self.service_instances.values():
-                    service_instance_amortized_cost = 0.0
+                    service_instance_cost = [0.0] * config.nb_amounts
                     for cost_item in service_instance.cost_items:
                         if not cost_item.is_self_consumption():
-                            service_instance_amortized_cost += cost_item.amounts[0]
+                            for i in range(config.nb_amounts):
+                                service_instance_cost[i] += cost_item.amounts[i]
                     for cost_item in service_instance.cost_items:
-                        cost_item.set_cost_as_key(service_instance_amortized_cost)
+                        cost_item.set_cost_as_key(service_instance_cost, config)
 
-            # Allocate amortized costs for services
+            # Allocate costs for services
             info("Allocating costs, for date " + self.date_str)
             self.visit_for_allocation(False, False, amount_to_allocation_key_indexes)
 
@@ -321,7 +327,8 @@ class CloudCostAllocator(object):
                             "'" + actual_product_tag_variable + "' in globals() and " + \
                             actual_product_tag_variable + "=='" + product + "'"
                     new_consumer_cost_item.provider_cost_allocation_type = "ConsumerTag"
-                    new_consumer_cost_item.allocation_keys[0] = 1.0
+                    for i in range(config.nb_allocation_keys):
+                        new_consumer_cost_item.allocation_keys[i] = 1.0
                     new_consumer_cost_item.product = product
 
                     # Add consumer dimensions
@@ -346,6 +353,9 @@ class CloudCostAllocator(object):
                                     cost_items: list[CostItem],
                                     cloud_tag_selector_consumer_cost_items: list[ConsumerCostItem],
                                     cloud_cost_items: list[CloudCostItem]) -> None:
+
+        # Get number of allocation keys
+        nb_allocation_keys = self.cost_item_factory.config.nb_allocation_keys
 
         # Build evaluation error dict, used to avoid error streaming in case of incorrect cloud tag selector expression
         # Key = provider service, provider instance, cloud tag selector expression, exception
@@ -420,9 +430,10 @@ class CloudCostAllocator(object):
                                 ServiceInstance.get_id(cloud_cost_item.service, cloud_cost_item.instance)
                             if consumer_cost_item_key in new_consumer_cost_items:
 
-                                # Increase existing cost allocation key with the amortized cost of this cloud cost item
+                                # Increase existing cost allocation key with the first cost of this cloud cost item
                                 new_consumer_cost_item = new_consumer_cost_items[consumer_cost_item_key]
-                                new_consumer_cost_item.allocation_keys[0] += cloud_cost_item.amounts[0]
+                                for i in range(nb_allocation_keys):
+                                    new_consumer_cost_item.allocation_keys[i] += cloud_cost_item.amounts[0]
 
                             else:
                                 # Create new consumer cost item for this instance
@@ -445,7 +456,8 @@ class CloudCostAllocator(object):
                                     cloud_tag_selector_consumer_cost_item.provider_cost_allocation_type
                                 new_consumer_cost_item.provider_tag_selector =\
                                     cloud_tag_selector_consumer_cost_item.provider_tag_selector
-                                new_consumer_cost_item.allocation_keys[0] = cloud_cost_item.amounts[0]
+                                for i in range(nb_allocation_keys):
+                                    new_consumer_cost_item.allocation_keys[i] += cloud_cost_item.amounts[0]
                                 new_consumer_cost_item.provider_cost_allocation_cloud_tag_selector =\
                                     cloud_tag_selector
 
@@ -474,7 +486,10 @@ class CloudCostAllocator(object):
     def process_default_products(self,
                                  cost_items: list[CostItem],
                                  default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]],
-                                 default_product_allocation_total_keys: dict[str, float]):
+                                 default_product_allocation_total_keys: dict[str, list[float]]):
+
+        # Get nb of allocation keys
+        nb_allocation_keys = self.cost_item_factory.config.nb_allocation_keys
 
         # Reset instances
         self.reset_instances(cost_items)
@@ -492,13 +507,14 @@ class CloudCostAllocator(object):
                     new_consumer_cost_item.copy(cost_item)
                     new_consumer_cost_item.provider_cost_allocation_type += "+DefaultProduct"
                     default_product_total_keys = default_product_allocation_total_keys[cost_item.provider_service]
-                    default_product_allocation_key_ratio =\
-                        default_product_consumer_cost_item.allocation_keys[0] / default_product_total_keys
+                    provider_meter_ratio =\
+                        sum(default_product_consumer_cost_item.allocation_keys) / sum(default_product_total_keys)
                     for provider_meter in new_consumer_cost_item.provider_meters:
-                        provider_meter.value *= default_product_allocation_key_ratio
+                        provider_meter.value *= provider_meter_ratio
                     self.update_default_product_from_consumer_cost_item(new_consumer_cost_item,
                                                                         default_product_consumer_cost_item)
-                    new_consumer_cost_item.allocation_keys[0] /= default_product_total_keys
+                    for i in range(nb_allocation_keys):
+                        new_consumer_cost_item.allocation_keys[i] /= default_product_total_keys[i]
                     new_cost_items.append(new_consumer_cost_item)
             else:
                 new_cost_items.append(cost_item)
@@ -522,7 +538,7 @@ class CloudCostAllocator(object):
                 new_consumer_cost_item.service = service_instance.service
                 new_consumer_cost_item.instance = service_instance.instance
                 new_consumer_cost_item.provider_cost_allocation_type = "DefaultProduct"
-                new_consumer_cost_item.allocation_keys[0] = 1.0
+                new_consumer_cost_item.allocation_keys = [1.0] * nb_allocation_keys
                 if service_instance.service in default_product_consumer_cost_items:
                     for default_product_consumer_cost_item\
                             in default_product_consumer_cost_items[service_instance.service]:
@@ -552,7 +568,8 @@ class CloudCostAllocator(object):
                                                        default_product_consumer_cost_item: ConsumerCostItem):
         new_consumer_cost_item.product = default_product_consumer_cost_item.product
         new_consumer_cost_item.product_dimensions = default_product_consumer_cost_item.product_dimensions.copy()
-        new_consumer_cost_item.allocation_keys[0] *= default_product_consumer_cost_item.allocation_keys[0]
+        for i in range(self.cost_item_factory.config.nb_allocation_keys):
+            new_consumer_cost_item.allocation_keys[i] *= default_product_consumer_cost_item.allocation_keys[i]
 
     def untangle_cycles(self,  cost_items: list[CostItem]):
 

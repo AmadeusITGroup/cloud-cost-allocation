@@ -29,19 +29,32 @@ class CSV_AllocatedCostWriter(GenericWriter):
             'Service',
             'Instance',
             'Tags',
-            'AmortizedCost',
-            'OnDemandCost',
+            ]
+
+        # Add amounts and product amounts
+        headers.extend(self.config.amounts)
+
+        # Add provider info
+        headers.extend([
             'Currency',
             'ProviderService',
             'ProviderInstance',
             'ProviderTagSelector',
             'ProviderCostAllocationType',
-            'ProviderCostAllocationKey',
+            ])
+
+        # Add allocation keys
+        headers.extend(self.config.allocation_keys)
+
+        # Add provider info
+        headers.extend([
             'ProviderCostAllocationCloudTagSelector',
             'Product',
-            'ProductAmortizedCost',
-            'ProductOnDemandCost',
-            ]
+            ])
+
+        # Add product amounts
+        for amount in self.config.amounts:
+            headers.extend(['Product' + amount])
 
         # Add dimensions
         headers.extend(self.config.dimensions)
@@ -71,16 +84,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
                     headers.extend(['ProductMeterUnit%s' % i])
                     headers.extend(['ProductMeterValue%s' % i])
 
-        # Add further amounts and product amounts
-        if self.config.nb_amounts > 2:
-            headers.extend(self.config.amounts[2:])
-            for amount in self.config.amounts[2:]:
-                headers.extend(['Product' + amount])
-
-        # Add further allocation keys
-        if self.config.nb_allocation_keys > 1:
-            headers.extend(self.config.allocation_keys[1:])
-
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
@@ -93,8 +96,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['Service'] = cost_item.service
         data['Instance'] = cost_item.instance
         data['Tags'] = utils.serialize_tags(cost_item.tags)
-        data['AmortizedCost'] = str(cost_item.amounts[0])
-        data['OnDemandCost'] = str(cost_item.amounts[1])
         data['Currency'] = cost_item.currency
 
         # Add dimensions
@@ -125,9 +126,6 @@ class CSV_AllocatedCostWriter(GenericWriter):
 
         # Provider cost allocation type
         data['ProviderCostAllocationType'] = cost_item.provider_cost_allocation_type
-
-        # Provider cost allocation key
-        data['ProviderCostAllocationKey'] = str(cost_item.allocation_keys[0])
 
         # Provider cost allocation keys
         index = 0
