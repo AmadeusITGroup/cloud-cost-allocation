@@ -81,8 +81,10 @@ class TestAzureEaAmortizedCostReader(AzureEaAmortizedCostReader):
 
     def read_item(self, line) -> TestCloudCostItem:
         cost_item = super().read_item(line)
+
         # Set Azure as cloud provider
         cost_item.cloud = 'az'
+
         # Set cloud resource id
         cloud_resource_id = line['ResourceId']
         if cloud_resource_id:
@@ -224,6 +226,9 @@ class Test(unittest.TestCase):
     def test_test9(self):
         self.run_allocation('test9')
 
+    def test_test10(self):
+        self.run_allocation('test10')
+
     # Auxiliary methods
     def load_further_amount_test7(self, cost_items: list[CostItem]):
         for cost_item in cost_items:
@@ -249,7 +254,7 @@ class Test(unittest.TestCase):
     def run_allocation(self, test: str):
 
         # Set logging INFO level
-        logging.getLogger().setLevel(logging.ERROR)
+        logging.getLogger().setLevel(logging.FATAL)
 
         # Get script directory
         directory = os.path.dirname(os.path.realpath(__file__))

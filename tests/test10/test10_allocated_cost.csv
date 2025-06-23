@@ -1,0 +1,14 @@
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,ServiceProductAmortizedCost,ServiceProductOnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption,ProductInfo
+2025-06-20,s1,s1,"service:s1,cloud_resource_id:/az/virtualmachines/vm1,",100.0,100.0,100.0,100.0,EUR,,,,,,,,,,az,N,
+2025-06-20,s3,s3,,0.0,0.0,0.0,0.0,EUR,s1,s1,,Key,0.0,,,,,,N,
+2025-06-20,s3,s3,,0.0,0.0,0.0,0.0,EUR,s3,s3,,DefaultProduct,1.0,,p0,0.0,0.0,,Y,0
+2025-06-20,s4,s4,,100.0,100.0,100.0,100.0,EUR,s1,s1,,Key,1.0,,,,,,N,
+2025-06-20,s5,s5,,50.0,50.0,50.0,50.0,EUR,s4,s4,,Key,0.0,,,,,,N,
+2025-06-20,s6,s6,,50.0,50.0,50.0,50.0,EUR,s4,s4,,Key,0.0,,,,,,N,
+2025-06-20,s7,s7,,12.5,12.5,0.0,0.0,EUR,s5,s5,,Key+DefaultProduct,1.0,,p1,12.5,12.5,,N,
+2025-06-20,s7,s7,,12.5,12.5,0.0,0.0,EUR,s7,s7,,DefaultProduct,1.0,,p0,0.0,0.0,,Y,0
+2025-06-20,s8,s8,,37.5,37.5,0.0,0.0,EUR,s5,s5,,Key+DefaultProduct,3.0,,p1,37.5,37.5,,N,
+2025-06-20,s8,s8,,37.5,37.5,0.0,0.0,EUR,s8,s8,,DefaultProduct,1.0,,p0,0.0,0.0,,Y,0
+2025-06-20,s9,s9,,25.0,25.0,0.0,0.0,EUR,s6,s6,,Key+DefaultProduct,0.5,,p3,25.0,25.0,,N,
+2025-06-20,s9,s9,,25.0,25.0,0.0,0.0,EUR,s6,s6,,Key+DefaultProduct,0.5,,p4,25.0,25.0,,N,
+2025-06-20,s9,s9,,50.0,50.0,0.0,0.0,EUR,s9,s9,,DefaultProduct,1.0,,p0,0.0,0.0,,Y,0

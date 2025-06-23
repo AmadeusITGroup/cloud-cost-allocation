@@ -68,10 +68,10 @@ class CSV_CostAllocationKeysReader(GenericReader):
                         error("Skipping cost allocation key line with non-float " + allocation_key + ": '" + key_str + "'" +
                               " for ProviderService '" + consumer_cost_item.provider_service + "'")
                         return None
-                    if key_value != 0.0:
+                    if key_value >= 0.0:
                         consumer_cost_item.allocation_keys[allocation_key_index] = key_value
                     else:
-                        error("Skipping cost allocation key line with null " + allocation_key + ": '" + key_str + "'" +
+                        error("Skipping cost allocation key line with negative " + allocation_key + ": '" + key_str + "'" +
                               " for ProviderService '" + consumer_cost_item.provider_service + "'")
                         return None
                 allocation_key_index += 1
