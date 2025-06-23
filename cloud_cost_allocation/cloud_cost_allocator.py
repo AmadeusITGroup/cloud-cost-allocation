@@ -53,7 +53,6 @@ class CloudCostAllocator(object):
         # Also check if cost is used as cost allocation type
         cloud_tag_selector_consumer_cost_items = []
         default_product_consumer_cost_items = {}
-        default_product_allocation_keys = {}
         is_cost_used_as_cost_allocation_type = False
         for consumer_cost_item in consumer_cost_items:
             if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
@@ -64,10 +63,6 @@ class CloudCostAllocator(object):
                     default_product_consumer_cost_items[provider_service].append(consumer_cost_item)
                 else:
                     default_product_consumer_cost_items[provider_service] = [consumer_cost_item]
-                    default_product_allocation_keys[provider_service] = [0.0] * config.nb_allocation_keys
-                provider_service_default_product_allocation_keys = default_product_allocation_keys[provider_service]
-                for i in range(config.nb_allocation_keys):
-                    provider_service_default_product_allocation_keys[i] += consumer_cost_item.allocation_keys[i]
             else:
                 if consumer_cost_item.provider_cost_allocation_type == "Cost":
                     is_cost_used_as_cost_allocation_type = True
@@ -88,9 +83,7 @@ class CloudCostAllocator(object):
         cost_items = self.untangle_cycles(cost_items)
 
         # Process default products
-        cost_items = self.process_default_products(cost_items,
-                                                   default_product_consumer_cost_items,
-                                                   default_product_allocation_keys)
+        cost_items = self.process_default_products(cost_items, default_product_consumer_cost_items)
 
         # Check dates
         cleansed_cost_items = []
@@ -485,14 +478,24 @@ class CloudCostAllocator(object):
 
     def process_default_products(self,
                                  cost_items: list[CostItem],
-                                 default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]],
-                                 default_product_allocation_total_keys: dict[str, list[float]]):
-
-        # Get nb of allocation keys
-        nb_allocation_keys = self.cost_item_factory.config.nb_allocation_keys
+                                 default_product_consumer_cost_items: dict[str, list[ConsumerCostItem]]):
 
         # Reset instances
         self.reset_instances(cost_items)
+
+        # Calculate default product allocation total keys by provider service
+        nb_allocation_keys = self.cost_item_factory.config.nb_allocation_keys
+        default_product_allocation_total_keys = {}  # Key = provider service, Value = default product total keys
+        for provider_service, default_product_consumer_cost_item_list in default_product_consumer_cost_items.items():
+            total_keys = [0.0] * nb_allocation_keys
+            default_product_allocation_total_keys[provider_service] = total_keys
+            for i in range(nb_allocation_keys):
+                for default_product_consumer_cost_item in default_product_consumer_cost_item_list:
+                    total_keys[i] += default_product_consumer_cost_item.allocation_keys[i]
+                if total_keys[i] == 0:  # If every key is 0, then set every key to 1 (avoid division by 0)
+                    for default_product_consumer_cost_item in default_product_consumer_cost_item_list:
+                        default_product_consumer_cost_item.allocation_keys[i] = 1
+                    total_keys[i] = len(default_product_consumer_cost_item_list)
 
         # Add default products for consumer cost items with no product
         new_cost_items = []
