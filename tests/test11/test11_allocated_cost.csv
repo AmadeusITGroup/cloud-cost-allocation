@@ -1,0 +1,10 @@
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,ServiceProductAmortizedCost,ServiceProductOnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Cloud,IsFinalConsumption,ProductInfo
+2025-12-04,s1,s1,"service:s1,cloud_resource_id:/az/virtualmachines/vm1,",100.0,100.0,100.0,100.0,EUR,,,,,,,,,,az,N,
+2025-12-04,s2,s2,"foo1:bar1,",25.0,25.0,0.0,0.0,EUR,s1,s1,,Key,1.0,,p1,25.0,25.0,,N,
+2025-12-04,s2,s2,"foo2:bar2,",25.0,25.0,0.0,0.0,EUR,s1,s1,,Key,1.0,,p2,25.0,25.0,,N,
+2025-12-04,s2,s2,"foo3:bar3,",25.0,25.0,25.0,25.0,EUR,s1,s1,,Key,1.0,,,,,,N,
+2025-12-04,s2,s2,"foo4:bar4,",25.0,25.0,25.0,25.0,EUR,s1,s1,,Key,1.0,,,,,,N,
+2025-12-04,s2,s2,,50.0,50.0,0.0,0.0,EUR,s2,s2,globals().get('foo1')=='bar1',Key,1.0,,p3,0.0,0.0,,Y,
+2025-12-04,s2,s2,,0.0,0.0,0.0,0.0,EUR,s2,s2,globals().get('foo')=='bar',Key,1.0,,p4,0.0,0.0,,Y,
+2025-12-04,s2,s2,,50.0,50.0,0.0,0.0,EUR,s2,s2,globals().get('foo3')=='bar3',Key,1.0,,p5,50.0,50.0,,Y,
+2025-12-04,s2,s2,,0.0,0.0,0.0,0.0,EUR,s2,s2,globals().get('foo')=='bar',Key,1.0,,p6,0.0,0.0,,Y,

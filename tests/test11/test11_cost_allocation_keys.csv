@@ -1,0 +1,9 @@
+Date,ProviderService,ProviderCostAllocationType,ProviderCostAllocationKey,ConsumerService,Product,ConsumerTags,ProviderTagSelector
+2025-12-04,s1,Key,1,s2,p1,foo1:bar1,
+2025-12-04,s1,Key,1,s2,p2,foo2:bar2,
+2025-12-04,s1,Key,1,s2,,foo3:bar3,
+2025-12-04,s1,Key,1,s2,,foo4:bar4,
+2025-12-04,s2,Key,1,s2,p3,,globals().get('foo1')=='bar1'
+2025-12-04,s2,Key,1,s2,p4,,globals().get('foo')=='bar'
+2025-12-04,s2,Key,1,s2,p5,,globals().get('foo3')=='bar3'
+2025-12-04,s2,Key,1,s2,p6,,globals().get('foo')=='bar'
