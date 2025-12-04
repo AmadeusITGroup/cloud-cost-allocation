@@ -1,0 +1,2 @@
+Date,LineNumber,Tags,CostInBillingCurrency,BillingCurrencyCode,PricingModel,ChargeType,ResourceId
+12/04/2025,1,"""service"": ""s1""",100,EUR,OnDemand,Usage,/Az/virtualMachines/vm1

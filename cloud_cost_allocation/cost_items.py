@@ -801,7 +801,7 @@ class ServiceInstance(object):
                         provider_tag_selector_amount.adjusted_product_amounts[index] =\
                             service_instance_product_amounts[index] *\
                             provider_tag_selector_amount.raw_product_amounts[index] /\
-                            total_provider_tag_selector_raw_amounts[index]
+                            total_provider_tag_selector_raw_product_amounts[index]
                     else:  # No selector matches any item!
                         # Adjust equally
                         provider_tag_selector_amount.adjusted_product_amounts[index] =\
