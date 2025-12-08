@@ -4,3 +4,4 @@ Date,ProviderService,ProviderInstance,ProviderCostAllocationType,ProviderCostAll
 2022-03-11,shared1,,Cost,,,,,"consumer_service:n/a,consumer_instance:-"
 2022-03-11,shared1,,Cost,,,shared2,instance1,"consumer_service:application1,consumer_instance:instance1,consumer_component:component1"
 2022-03-11,shared1,,Cost,,,shared2,instance2,"consumer_service:application2,consumer_instance:instance2"
+2022-03-11,application1,instance1,Key,,1,application1,instance2,
