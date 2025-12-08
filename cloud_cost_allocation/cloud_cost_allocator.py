@@ -9,7 +9,6 @@ import sys
 from cloud_cost_allocation.cost_items import CloudCostItem, ConsumerCostItem, CostItemFactory, \
     CostItem, ServiceInstance
 from cloud_cost_allocation.exceptions import CycleException, BreakableCycleException, UnbreakableCycleException
-from cloud_cost_allocation.utils.utils import is_float
 
 
 class CloudCostAllocator(object):
@@ -49,11 +48,19 @@ class CloudCostAllocator(object):
         cost_items = []
         cost_items.extend(cloud_cost_items)
 
-        # Identify cloud tag selectors and default product consumer cost items
-        # Also check if cost is used as cost allocation type
+        # Pre-processing:
+        # - Identify cloud tag selectors
+        # - Identify default product consumer cost items
+        # - check if cost is used as cost allocation type
+        # - Discard cross-instance allocation if needed
         cloud_tag_selector_consumer_cost_items = []
         default_product_consumer_cost_items = {}
         is_cost_used_as_cost_allocation_type = False
+        discard_cross_instance_allocation = True\
+            if 'General' in config.config and\
+               'DiscardCrossInstanceAllocation' in config.config['General'] and\
+               config.config['General']['DiscardCrossInstanceAllocation'].lower() == "yes"\
+            else False
         for consumer_cost_item in consumer_cost_items:
             if consumer_cost_item.provider_cost_allocation_type == "CloudTagSelector":
                 cloud_tag_selector_consumer_cost_items.append(consumer_cost_item)
@@ -66,7 +73,12 @@ class CloudCostAllocator(object):
             else:
                 if consumer_cost_item.provider_cost_allocation_type == "Cost":
                     is_cost_used_as_cost_allocation_type = True
-                cost_items.append(consumer_cost_item)
+                if discard_cross_instance_allocation and\
+                        consumer_cost_item.service == consumer_cost_item.provider_service and\
+                        consumer_cost_item.instance != consumer_cost_item.provider_instance:
+                    info("Discarded cross-instance allocation key: "  + str(consumer_cost_item))
+                else:
+                    cost_items.append(consumer_cost_item)
 
         # Process cloud tag selectors
         info("Processing cloud tag selectors, for date " + self.date_str)

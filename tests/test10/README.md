@@ -1,3 +1,5 @@
 # test10
 
-Test for null and negative allocation keys
+Test for:
+- Null and negative allocation keys
+- Cross instance allocation that is discarded by config

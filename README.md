@@ -206,6 +206,10 @@ NumberOfProductDimensions = 2
 # The number of product meter columns in input cost allocation data and output allocated cost data
 NumberOfProductMeters = 3
 
+# Discard cost allocation keys across different instances of a single service
+# Value 'yes' enables the discard
+DiscardCrossInstanceAllocation = yes
+
 [TagKey]
 
 # The tag keys for service and instance

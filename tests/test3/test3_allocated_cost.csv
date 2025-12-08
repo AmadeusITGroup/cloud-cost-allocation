@@ -1,5 +1,6 @@
 Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,ServiceProductAmortizedCost,ServiceProductOnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Component,Cloud,IsFinalConsumption,ProductInfo
-2022-03-11,application1,instance1,,33.0,45.0,33.0,45.0,EUR,shared2,instance1,'consumer_service' in globals() and consumer_service=='application1' and 'consumer_instance' in globals() and consumer_instance=='instance1',ConsumerTag,1.0,,,,,component1,,Y,
+2022-03-11,application1,instance1,,33.0,45.0,33.0,45.0,EUR,shared2,instance1,'consumer_service' in globals() and consumer_service=='application1' and 'consumer_instance' in globals() and consumer_instance=='instance1',ConsumerTag,1.0,,,,,component1,,N,
+2022-03-11,application1,instance2,,33.0,45.0,33.0,45.0,EUR,application1,instance1,,Key,1.0,,,,,,,Y,
 2022-03-11,application2,instance2,,132.0,180.0,132.0,180.0,EUR,shared2,instance2,'consumer_service' in globals() and consumer_service=='application2' and 'consumer_instance' in globals() and consumer_instance=='instance2',ConsumerTag,1.0,,,,,,,Y,
 2022-03-11,finops,reservation,,10.0,0.0,10.0,0.0,EUR,,,,,,,,,,unused,az,N,
 2022-03-11,finops,reservation,,5.0,0.0,5.0,0.0,EUR,,,,,,,,,,unused,az,N,
