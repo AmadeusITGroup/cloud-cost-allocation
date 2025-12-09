@@ -16,6 +16,7 @@ from cloud_cost_allocation.cloud_cost_allocator import CloudCostAllocator
 from cloud_cost_allocation.reader.csv_allocated_cost_reader import CSV_AllocatedCostReader
 from cloud_cost_allocation.reader.azure_ea_amortized_cost_reader import AzureEaAmortizedCostReader
 from cloud_cost_allocation.reader.csv_cost_allocation_keys_reader import CSV_CostAllocationKeysReader
+from cloud_cost_allocation.reader.csv_focus_reader import CSV_FocusReader
 from cloud_cost_allocation.utils.utils import read_csv_file, write_csv_file
 from cloud_cost_allocation.writer.csv_allocated_cost_writer import CSV_AllocatedCostWriter
 from cloud_cost_allocation.cost_items import CloudCostItem, ConsumerCostItem, CostItem, ServiceInstance, CostItemFactory
@@ -232,6 +233,9 @@ class Test(unittest.TestCase):
     def test_test11(self):
         self.run_allocation('test11')
 
+    def test_test12(self):
+        self.run_allocation('test12')
+
     # Auxiliary methods
     def load_further_amount_test7(self, cost_items: list[CostItem]):
         for cost_item in cost_items:
@@ -256,7 +260,7 @@ class Test(unittest.TestCase):
 
     def run_allocation(self, test: str):
 
-        # Set logging INFO level
+        # Set logging level
         logging.getLogger().setLevel(logging.FATAL)
 
         # Get script directory
@@ -273,10 +277,20 @@ class Test(unittest.TestCase):
         # Create cost item factory
         cost_item_factory = TestCostItemFactory(config)
 
+        # Get the cloud cost reader
+        cloud_cost_reader = None
+        if 'Test' in file_config and 'CloudCostReader' in file_config['Test']:
+            cloud_cost_reader_str = file_config['Test']['CloudCostReader']
+            if cloud_cost_reader_str == "Focus":
+                cloud_cost_reader = CSV_FocusReader(cost_item_factory)
+            elif cloud_cost_reader_str == "AzureEaAmortizedCost":
+                cloud_cost_reader = TestAzureEaAmortizedCostReader(cost_item_factory)
+        if cloud_cost_reader is None:
+            logging.fatal(" None or invalid cloud cost reader defined in config file for " + test)
+            sys.exit(1)
+
         # Read costs
-        # TODO: when different readers are supported, select the reader and the cloud from the config
         cloud_cost_items = []
-        cloud_cost_reader = TestAzureEaAmortizedCostReader(cost_item_factory)
         costs_filename = directory + "/" + test + "/" + test + "_cloud_cost.csv"
         read_csv_file(costs_filename, cloud_cost_reader, cloud_cost_items)
 
@@ -306,8 +320,8 @@ class Test(unittest.TestCase):
 
     def run_further_allocation(self, test: str, load_further_amount_method: classmethod):
 
-        # Set logging INFO level
-        logging.getLogger().setLevel(logging.ERROR)
+        # Set logging level
+        logging.getLogger().setLevel(logging.INFO)
 
         # Get script directory
         directory = os.path.dirname(os.path.realpath(__file__))

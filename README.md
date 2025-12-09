@@ -236,17 +236,24 @@ ConsumerServiceIgnoredValue = n/a
 # In case of list, first matching key is used
 Product = product
 
+[FocusUnusedCommitment]
+
+# The service, instance, and dimensions to allocate FOCUS unused commitment cost
+UnusedCommitmentService = finops
+UnusedCommitmentInstance = unused-commitment
+UnusedCommitmentComponent = focus-commitment
+
 [AzureEaAmortizedCost]
 
 # The service, instance, and dimensions to allocate Azure unused reservation cost
 UnusedReservationService = finops
 UnusedReservationInstance = unused-commitment
-UnusedReservationComponent = reservation
+UnusedReservationComponent = azure-reservation
 
 # The service, instance, and dimensions to allocate Azure unused savings plan cost
 UnusedSavingsPlanService = finops
 UnusedSavingsPlanInstance = unused-commitment
-UnusedSavingsPlanComponent = savings-plan
+UnusedSavingsPlanComponent = azure-savings-plan
 
 [Cycles]
 

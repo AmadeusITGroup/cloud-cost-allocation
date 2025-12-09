@@ -1,7 +1,9 @@
 # coding: utf-8
 
 from datetime import date
-from logging import error
+from dateutil import parser
+from dateutil.relativedelta import relativedelta
+from logging import fatal
 import re
 
 from cloud_cost_allocation.cloud_cost_allocator import CostItemFactory, CloudCostItem
@@ -9,9 +11,9 @@ from cloud_cost_allocation.reader.base_reader import GenericReader
 from cloud_cost_allocation.utils import utils
 
 
-class AzureEaAmortizedCostReader(GenericReader):
+class CSV_FocusReader(GenericReader):
     """
-    Reads Azure Enterprise Agreement amortized cloud costs
+    Reads cloud costs in FOCUS CSV format
     """
     def __init__(self, cost_item_factory: CostItemFactory):
         super().__init__(cost_item_factory)
@@ -21,76 +23,77 @@ class AzureEaAmortizedCostReader(GenericReader):
         # Create cloud cost item
         cloud_cost_item = self.cost_item_factory.create_cloud_cost_item()
 
-        # Set date
-        azure_date_str = line["Date"].strip()
-        if not re.match('\d\d/\d\d/\d\d\d\d', azure_date_str):
-            error("Expected Azure date format MM/DD/YYYY, but got: " + azure_date_str)
+        # The charge period must be one day, which is parsed as the date
+        charge_period_start_date_str = line["ChargePeriodStart"]
+        try:
+            charge_period_start_date = parser.parse(charge_period_start_date_str)
+        except(parser.ParserError, OverflowError):
+            fatal("Invalid FOCUS ChargePeriodStart in line %s", line)
             return None
-        azure_date = date(int(azure_date_str[6:]), int(azure_date_str[:2]), int(azure_date_str[3:5]))
+        charge_period_end_date_str = line["ChargePeriodEnd"]
+        try:
+            charge_period_end_date = parser.parse(charge_period_end_date_str)
+        except(parser.ParserError, OverflowError):
+            fatal("Invalid FOCUS ChargePeriodEnd in line %s", line)
+            return None
+        if relativedelta(charge_period_end_date, charge_period_start_date) != relativedelta(days=+1):
+            fatal("Expected Charge Period to be exactly 1 day; line %s", line)
+            return None
         config = self.cost_item_factory.config
-        cloud_cost_item.date_str = azure_date.strftime(config.date_format)
+        cloud_cost_item.date_str = charge_period_start_date.strftime(config.date_format)
 
-        # Set amortized cost
-        amortized_cost = 0.0
-        cost_in_billing_currency = line["CostInBillingCurrency"]
-        if utils.is_float(cost_in_billing_currency):
-            amortized_cost = float(cost_in_billing_currency)
-        else:
-            error("CostInBillingCurrency cannot be parsed in line %s", line)
-            return None
+        # Set amortized cost, which is effective cost in FOCUS
         if 'AmortizedCost' in config.amounts:
-            cloud_cost_item.amounts[config.amounts.index('AmortizedCost')] = amortized_cost
-
-        # Compute and set on-demand cost
-        # https://learn.microsoft.com/en-us/azure/cost-management-billing/reservations/understand-reserved-instance-usage-ea
-        # https://learn.microsoft.com/en-us/azure/cost-management-billing/savings-plan/utilization-cost-reports
-        on_demand_cost = 0.0
-        pricing_model = line["PricingModel"]
-        charge_type = line["ChargeType"]
-        if pricing_model in ["Reservation", "SavingsPlan"]:
-            if charge_type in ["UnusedReservation", "UnusedSavingsPlan"]:
-                on_demand_cost = 0.0  # Unused commitments are not on-demand costs
+            effective_cost = line["EffectiveCost"]
+            if utils.is_float(effective_cost):
+                cloud_cost_item.amounts[config.amounts.index('AmortizedCost')] = float(effective_cost)
             else:
-                quantity = line["Quantity"]
-                unit_price = line["UnitPrice"]
-                if utils.is_float(quantity) and utils.is_float(unit_price):
-                    on_demand_cost = float(quantity) * float(unit_price)
-                else:
-                    error("Quantity or UnitPrice cannot be parsed in line %s", line)
-                    return None
-        else:  # No unused commitment: on-demand cost is amortized cost
-            on_demand_cost = amortized_cost
+                fatal("EffectiveCost cannot be parsed in line %s", line)
+                return None
+
+        # Compute and set on-demand cost, which is contracted cost in FOCUS
+        on_demand_cost = 0.0
         if 'OnDemandCost' in config.amounts:
-            cloud_cost_item.amounts[config.amounts.index('OnDemandCost')] = on_demand_cost
+            contracted_cost = line["ContractedCost"]
+            if utils.is_float(contracted_cost):
+                cloud_cost_item.amounts[config.amounts.index('OnDemandCost')] = float(contracted_cost)
+            else:
+                fatal("ContractedCost cannot be parsed in line %s", line)
+                return None
 
         # Set currency
-        cloud_cost_item.currency = line["BillingCurrencyCode"]
+        cloud_cost_item.currency = line["BillingCurrency"]
 
         # Process tags
-        for tag in line["Tags"].split('","'):
-            if tag:
-                key_value_match = re.match("\"?([^\"]+)\": \"([^\"]*)\"?", tag)
-                if key_value_match:
-                    key = key_value_match.group(1).strip().lower()
-                    value = key_value_match.group(2).strip().lower()
-                    cloud_cost_item.tags[key] = value
-                else:
-                    error("Unexpected tag format in cost stream: '" + tag + "'")
+        tags = line["Tags"].strip().lower()
+        if tags != "null":
+            tags_match = re.match("{(.*)}", tags)
+            if not tags_match:
+                fatal("Invalid Tags format in line %s: ", line)
+                return None
+            for tag in tags_match.group(1).split(','):
+                if tag:
+                    key_value_match = re.match("\s*\"([^\"]+)\"\s*:\s*\"?([^\"]*)\"?\s*", tag)
+                    if key_value_match:
+                        key = key_value_match.group(1).strip()
+                        value = key_value_match.group(2).strip()
+                        cloud_cost_item.tags[key] = value
+                    else:
+                        fatal("Unexpected tag format: '" + tag + "' in line %s", line)
 
         # Process unused commitment
         config = self.cost_item_factory.config
-        if charge_type in ["UnusedReservation", "UnusedSavingsPlan"]:
-            cloud_cost_item.service = config.config['AzureEaAmortizedCost'][charge_type + 'Service']
-            unused_commitment_instance = charge_type + 'Instance'
-            if unused_commitment_instance in config.config['AzureEaAmortizedCost']:
-                cloud_cost_item.instance = config.config['AzureEaAmortizedCost'][unused_commitment_instance]
+        if line["CommitmentDiscountStatus"] == "Unused":
+            cloud_cost_item.service = config.config['FocusUnusedCommitment']['UnusedCommitmentService']
+            if 'UnusedCommitmentInstance' in config.config['FocusUnusedCommitment']:
+                cloud_cost_item.instance = config.config['FocusUnusedCommitment']['UnusedCommitmentInstance']
             else:
                 cloud_cost_item.instance = cloud_cost_item.service
             for dimension in config.dimensions:
-                unused_commitment_dimension = charge_type + dimension
-                if unused_commitment_dimension in config.config['AzureEaAmortizedCost']:
+                unused_commitment_dimension = 'UnusedCommitment' + dimension
+                if unused_commitment_dimension in config.config['FocusUnusedCommitment']:
                     cloud_cost_item.dimensions[dimension] =\
-                        config.config['AzureEaAmortizedCost'][unused_commitment_dimension]
+                        config.config['FocusUnusedCommitment'][unused_commitment_dimension]
 
         else:  # Not an unused commitment
 
