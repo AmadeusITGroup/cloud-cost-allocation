@@ -1,0 +1,5 @@
+Date,Service,Instance,Tags,AmortizedCost,OnDemandCost,ServiceProductAmortizedCost,ServiceProductOnDemandCost,Currency,ProviderService,ProviderInstance,ProviderTagSelector,ProviderCostAllocationType,ProviderCostAllocationKey,ProviderCostAllocationCloudTagSelector,Product,ProductAmortizedCost,ProductOnDemandCost,Environment,Cloud,IsFinalConsumption,ProductInfo
+2024-09-18,brightlensmatrix,brightlensmatrix,"application:brightlensmatrix,environment:dev,business_unit:viennaai,",1.618,2.0,1.618,2.0,EUR,,,,,,,,,,dev,,N,
+2024-09-18,brightlensmatrix,brightlensmatrix,,1.618,2.0,0.0,0.0,EUR,brightlensmatrix,brightlensmatrix,,Key,1.0,,brightlensmovie,1.618,2.0,,,Y,
+2024-09-18,s0,s0,,3.1416,4.0,3.1416,4.0,EUR,,,,,,,,,,,,N,
+2024-09-18,s0,s0,,3.1416,4.0,0.0,0.0,EUR,s0,s0,,DefaultProduct,1.0,,p0,3.1416,4.0,,,Y,0
