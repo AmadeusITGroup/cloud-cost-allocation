@@ -12,3 +12,7 @@ Date,ProviderService,ProviderCostAllocationType,ProviderCostAllocationKey,Consum
 2025-06-20,s6,Key,1,s6,instance1,
 2025-06-20,s6,DefaultProduct,0,,,p3
 2025-06-20,s6,DefaultProduct,0,,,p4
+2025-06-20,s10,Key,0,s11,,
+2025-06-20,s10,Key,0,s12,,
+2025-06-20,s10,DefaultProduct,1,0,,p5
+2025-06-20,s10,DefaultProduct,3,0,,p6

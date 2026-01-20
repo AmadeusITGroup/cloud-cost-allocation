@@ -509,13 +509,36 @@ class CloudCostAllocator(object):
                         default_product_consumer_cost_item.allocation_keys[i] = 1
                     total_keys[i] = len(default_product_consumer_cost_item_list)
 
+        # Calculate provider tag selector total keys for services with default products, to address the particular
+        # case where all keys are 0
+        provider_tag_selector_total_keys = {}
+        for cost_item in cost_items:
+            provider_service = cost_item.get_provider_service()
+            if (provider_service and
+                    not cost_item.get_product() and
+                    provider_service in default_product_consumer_cost_items):
+                    total_keys_id = (provider_service + "." +
+                                     cost_item.provider_instance + "." +
+                                     cost_item.provider_tag_selector)
+                    if total_keys_id in provider_tag_selector_total_keys:
+                        total_keys = provider_tag_selector_total_keys[total_keys_id]
+                    else:
+                        total_keys = [0.0] * nb_allocation_keys
+                    for i in range(nb_allocation_keys):
+                        total_keys[i] += cost_item.allocation_keys[i]
+                    provider_tag_selector_total_keys[total_keys_id] = total_keys
+
         # Add default products for consumer cost items with no product
         new_cost_items = []
         for cost_item in cost_items:
             provider_service = cost_item.get_provider_service()
             if (provider_service and
                     not cost_item.get_product() and
-                    cost_item.provider_service in default_product_consumer_cost_items):
+                    provider_service in default_product_consumer_cost_items):
+                total_keys_id = (provider_service + "." +
+                                 cost_item.provider_instance + "." +
+                                 cost_item.provider_tag_selector)
+                total_keys = provider_tag_selector_total_keys[total_keys_id]
                 for default_product_consumer_cost_item\
                         in default_product_consumer_cost_items[cost_item.provider_service]:
                     new_consumer_cost_item = self.cost_item_factory.create_consumer_cost_item()
@@ -526,10 +549,13 @@ class CloudCostAllocator(object):
                         sum(default_product_consumer_cost_item.allocation_keys) / sum(default_product_total_keys)
                     for provider_meter in new_consumer_cost_item.provider_meters:
                         provider_meter.value *= provider_meter_ratio
+                    for i in range(nb_allocation_keys):
+                        if total_keys[i] == 0.0:
+                            new_consumer_cost_item.allocation_keys[i] = 1.0
+                        else:
+                            new_consumer_cost_item.allocation_keys[i] /= default_product_total_keys[i]
                     self.update_default_product_from_consumer_cost_item(new_consumer_cost_item,
                                                                         default_product_consumer_cost_item)
-                    for i in range(nb_allocation_keys):
-                        new_consumer_cost_item.allocation_keys[i] /= default_product_total_keys[i]
                     new_cost_items.append(new_consumer_cost_item)
             else:
                 new_cost_items.append(cost_item)
