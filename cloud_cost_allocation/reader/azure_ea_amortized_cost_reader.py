@@ -23,7 +23,7 @@ class AzureEaAmortizedCostReader(GenericReader):
 
         # Set date
         azure_date_str = line["Date"].strip()
-        if not re.match('\d\d/\d\d/\d\d\d\d', azure_date_str):
+        if not re.match(r'\d\d/\d\d/\d\d\d\d', azure_date_str):
             error("Expected Azure date format MM/DD/YYYY, but got: " + azure_date_str)
             return None
         azure_date = date(int(azure_date_str[6:]), int(azure_date_str[:2]), int(azure_date_str[3:5]))

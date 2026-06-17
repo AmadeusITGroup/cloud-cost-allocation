@@ -18,19 +18,19 @@ class CSV_AllocatedCostReader(GenericReader):
     def initialize_cost_item(self, cost_item: CostItem, line):
 
         # Date
-        cost_item.date_str = line['Date']
+        cost_item.date_str = line.get('Date', "")
 
         # Service
-        cost_item.service = line['Service']
+        cost_item.service = line.get('Service', "")
 
         # Instance
-        cost_item.instance = line['Instance']
+        cost_item.instance = line.get('Instance', "")
 
         # Dimensions
         config = self.cost_item_factory.config
         for dimension in config.dimensions:
-            cost_item.dimensions[dimension] = line[dimension]
-        tag_str = line["Tags"]
+            cost_item.dimensions[dimension] = line.get(dimension, "")
+        tag_str = line.get("Tags", "")
         if tag_str:
             cost_item.tags = utils.deserialize_tags(tag_str)
 
@@ -38,13 +38,19 @@ class CSV_AllocatedCostReader(GenericReader):
         index = 0
         for amount in config.amounts:
             if amount in line:
-                amount_value_str = line[amount]
+                amount_value_str = line.get(amount, "")
                 if amount_value_str:
-                    cost_item.amounts[index] = float(amount_value_str)
+                    if utils.is_float(amount_value_str):
+                        cost_item.amounts[index] = float(amount_value_str)
+                    else:
+                         error("Amount '" + amount_value_str + "' of '" + amount +
+                                "' of Service '" + cost_item.service + "'" +
+                                  "is not a float")
+
             index += 1
 
         # Currency
-        cost_item.currency = line['Currency']
+        cost_item.currency = line.get('Currency', "")
 
     def read_cloud_cost_item(self, line) -> CloudCostItem:
         cloud_cost_item = self.cost_item_factory.create_cloud_cost_item()
@@ -58,93 +64,107 @@ class CSV_AllocatedCostReader(GenericReader):
         self.initialize_cost_item(consumer_cost_item, line)
 
         # Provider service
-        consumer_cost_item.provider_service = line["ProviderService"]
+        consumer_cost_item.provider_service = line.get("ProviderService", "")
 
         # Provider instance
-        consumer_cost_item.provider_instance = line["ProviderInstance"]
+        consumer_cost_item.provider_instance = line.get("ProviderInstance", "")
 
         # Provider tag selector
-        consumer_cost_item.provider_tag_selector = line["ProviderTagSelector"]
+        consumer_cost_item.provider_tag_selector = line.get("ProviderTagSelector", "")
 
         # Provider cost allocation type
-        consumer_cost_item.provider_cost_allocation_type = line["ProviderCostAllocationType"]
+        consumer_cost_item.provider_cost_allocation_type = line.get("ProviderCostAllocationType", "")
 
         # Allocation keys
         config = self.cost_item_factory.config
         index = 0
         for allocation_key in config.allocation_keys:
             if allocation_key in line:
-                allocation_key_value_str = line[allocation_key]
+                allocation_key_value_str = line.get(allocation_key, "")
                 if allocation_key_value_str:
-                    consumer_cost_item.allocation_keys[index] = float(allocation_key_value_str)
+                    if utils.is_float(allocation_key_value_str):
+                        consumer_cost_item.allocation_keys[index] = float(allocation_key_value_str)
+                    else:
+                         error("Allocation Key '" + allocation_key_value_str + "' of '" + allocation_key +
+                                "' of ProviderService '" + cost_item.provider_service + "'" +
+                                  "is not a float")
             index += 1
 
         # Provider cost allocation cloud tag selector
-        consumer_cost_item.provider_cost_allocation_cloud_tag_selector = line["ProviderCostAllocationCloudTagSelector"]
+        consumer_cost_item.provider_cost_allocation_cloud_tag_selector = line.get("ProviderCostAllocationCloudTagSelector", "")
 
         # Provider meters
         if config.nb_provider_meters:
             for i in range(1, config.nb_provider_meters + 1):
                 provider_meter = consumer_cost_item.provider_meters[i-1]
-                provider_meter.name = line['ProviderMeterName%s' % i]
-                provider_meter.unit = line['ProviderMeterUnit%s' % i]
-                provider_meter_value = line['ProviderMeterValue%s' % i]
-                if utils.is_float(provider_meter_value):
-                    provider_meter.value = float(provider_meter_value)
-                else:
-                    error("Value '" + provider_meter_value + "' of 'ProviderMeterValue" + str(i) +
-                          "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
-                          "is not a float")
+                provider_meter.name = line.get('ProviderMeterName%s' % i, "")
+                provider_meter.unit = line.get('ProviderMeterUnit%s' % i, "")
+                provider_meter_value = line.get('ProviderMeterValue%s' % i, "")
+                if provider_meter_value:
+                    if utils.is_float(provider_meter_value):
+                        provider_meter.value = float(provider_meter_value)
+                    else:
+                        error("Value '" + provider_meter_value + "' of 'ProviderMeterValue" + str(i) +
+                              "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                              "is not a float")
 
         # Product
-        consumer_cost_item.product = line["Product"]
+        consumer_cost_item.product = line.get("Product", "")
 
         # Product dimensions
         if config.nb_product_dimensions:
             for i in range(1, config.nb_product_dimensions+1):
                 product_dimension = consumer_cost_item.product_dimensions[i-1]
-                product_dimension.name = line['ProductDimensionName%s' % i]
-                product_dimension.element = line['ProductDimensionElement%s' % i]
+                product_dimension.name = line.get('ProductDimensionName%s' % i, "")
+                product_dimension.element = line.get('ProductDimensionElement%s' % i, "")
 
         # Product meters
         if config.nb_product_meters:
             product_meter0 = consumer_cost_item.product_meters[0]
-            product_meter0.name = line['ProductMeterName']
-            product_meter0.unit = line['ProductMeterUnit']
-            product_meter0_value = line['ProductMeterValue']
-            if utils.is_float(product_meter0_value):
-                product_meter0.value = float(product_meter0_value)
-            else:
-                error("Value '" + product_meter0_value + "' of 'ProductMeterValue" +
-                      "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
-                      "is not a float")
+            product_meter0.name = line.get('ProductMeterName', "")
+            product_meter0.unit = line.get('ProductMeterUnit', "")
+            product_meter0_value = line.get('ProductMeterValue', "")
+            if product_meter0_value:
+                if utils.is_float(product_meter0_value):
+                    product_meter0.value = float(product_meter0_value)
+                else:
+                    error("Value '" + product_meter0_value + "' of 'ProductMeterValue" +
+                          "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                          "is not a float")
         if config.nb_product_meters > 1:
             for i in range(2, config.nb_product_meters + 1):
                 product_meter = consumer_cost_item.product_meters[i-1]
-                product_meter.name = line['ProductMeterName%s' % i]
-                product_meter.unit = line['ProductMeterUnit%s' % i]
-                product_meter_value = line['ProductMeterValue%s' % i]
-                if utils.is_float(product_meter_value):
-                    product_meter.value = float(product_meter_value)
-                else:
-                    error("Value '" + product_meter_value + "' of 'ProductMeterValue" + str(i) +
-                          "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
-                          "is not a float")
+                product_meter.name = line.get('ProductMeterName%s' % i, "")
+                product_meter.unit = line.get('ProductMeterUnit%s' % i, "")
+                product_meter_value = line.get('ProductMeterValue%s' % i, "")
+                if product_meter_value:
+                    if utils.is_float(product_meter_value):
+                        product_meter.value = float(product_meter_value)
+                    else:
+                        error("Value '" + product_meter_value + "' of 'ProductMeterValue" + str(i) +
+                              "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                              "is not a float")
 
         # Product amounts
         index = 0
         for amount in config.amounts:
             product_amount = 'Product' + amount
-            if product_amount in line:
-                product_amount_value_str = line[product_amount]
-                if product_amount_value_str:
-                    consumer_cost_item.product_amounts[index] = float(product_amount_value_str)
+            product_amount_str = line.get(product_amount, "")
+            if product_amount_str:
+                if utils.is_float(product_amount_str):
+                    consumer_cost_item.product_amounts[index] = float(product_amount_str)
+                else:
+                    error("Amount '" + product_amount_str + "' of '" + product_amount +
+                          "' of ProviderService '" + consumer_cost_item.provider_service + "' " +
+                          "is not a float")
             index += 1
 
         return consumer_cost_item
 
     def read_item(self, line) -> CostItem:
-        if line['ProviderService']:
+        # TODO: introduce a column to specify the type of cost item: either cloud cost or consumer cost
+        provider_service = line.get("ProviderService", "")
+        if provider_service:
             return self.read_consumer_cost_item(line)
         else:
             return self.read_cloud_cost_item(line)
