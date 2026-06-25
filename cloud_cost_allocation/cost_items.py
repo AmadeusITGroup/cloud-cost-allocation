@@ -114,6 +114,10 @@ class CostItem(ABC):
         # Default behavior, overridden in child classes
         return []
 
+    def get_provider_meters(self) -> list[Meter]:
+        # Default behavior, overridden in child classes
+        return []
+
     def get_provider_service(self) -> str:
         # Default behavior, overridden in child classes
         return ''
@@ -269,6 +273,9 @@ class ConsumerCostItem(CostItem):
 
     def get_product_meters(self) -> list[Meter]:
         return self.product_meters
+
+    def get_provider_meters(self) -> list[Meter]:
+        return self.provider_meters
 
     def get_provider_service(self) -> str:
         # Default behavior, overridden in child classes
