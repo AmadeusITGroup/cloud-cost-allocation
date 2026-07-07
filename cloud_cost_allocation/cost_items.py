@@ -943,19 +943,21 @@ class ServiceInstance(object):
                 for service_instance in visited_service_instance_list:
                     if service_instance.service == first_service:
                         for cost_item in service_instance.cost_items:
-                            provider_service_instance = cost_item.get_consumer_cost_item_provider_service_instance()
-                            if provider_service_instance and\
-                               not provider_service_instance.is_visited and provider_service_instance.is_being_visited:
-                                cost_item.is_removed_from_cycle = True
-                                info("Broke cost allocation cycle at provider service instance " +
-                                     provider_service_instance.get_self_id() + " of service instance " +
-                                     service_instance.get_self_id() + ", as services " +
-                                     first_service + " and " + second_service +
-                                     " have been identified in the precedence list and in the cycle " +
-                                     cycle_message.getvalue())
+                            if not cost_item.is_self_consumption(): # Self-consumption is not a cycle
+                                provider_service_instance = cost_item.get_consumer_cost_item_provider_service_instance()
+                                if provider_service_instance and\
+                                   not provider_service_instance.is_visited and\
+                                        provider_service_instance.is_being_visited:
+                                    cost_item.is_removed_from_cycle = True
+                                    info("Broke cost allocation cycle at provider service instance " +
+                                         provider_service_instance.get_self_id() + " of service instance " +
+                                         service_instance.get_self_id() + ", as services " +
+                                         first_service + " and " + second_service +
+                                         " have been identified in the precedence list and in the cycle " +
+                                         cycle_message.getvalue())
 
-                                # Iterate to the next cycle break
-                                raise BreakableCycleException
+                                    # Iterate to the next cycle break
+                                    raise BreakableCycleException
 
                 # Reduce service precedence list
                 working_service_precedence_list.pop(0)
