@@ -1,0 +1,6 @@
+Date,LineNumber,Tags,CostInBillingCurrency,BillingCurrencyCode,PricingModel,ChargeType,ResourceId
+09/04/2026,1,"""service"": ""p1""",1000,EUR,OnDemand,Usage,/AiMeter/Token1000
+09/04/2026,1,"""service"": ""p1""",100,EUR,OnDemand,Usage,/AiMeter/Ptu100
+09/04/2026,1,"""service"": ""p2""",10,EUR,OnDemand,Usage,/AiMeter/Token10
+09/04/2026,1,"""service"": ""p2""",1,EUR,OnDemand,Usage,/Az/disks/vm
+

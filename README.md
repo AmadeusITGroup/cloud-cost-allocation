@@ -29,16 +29,18 @@ Furthermore, this also allows service owners to easily identify their main cost 
 | Term                  | Definition                                                                                                                                                       |
 |-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | *Service*             | A technical workload, operated by DevOps, which can either run directly on the cloud, or consume other services, or both.                                        |
-| *Product*             | A business product, which relies on one or multiple services. Products are somehow commercial packaging of services under the control of Product Managers.       |
-| *Product Dimension*   | An optional dimension for the cost report of a product, for example: a product feature, a product flavor, a market or a market segment.                          |
+| *Instance*            | A running instance or a deployment of a service. If we think of *Services* as *Classes* in object-oriented programming, then *Instances* would be the *Objects*. |
+| *Dimension*           | A configured dimension in the service cost allocation, for example an environment like Test or Production, or a component in the architecture of the service.    |
 | *Provider Service*    | The role of a service when it is consumed by another other service or product, a.k.a. a shared service.                                                          |
 | *Consumer Service*    | The role of a service when it consumes another service.                                                                                                          |
-| *Instance*            | A running instance or a deployment of a service. If we think of *Services* as *Classes* in object-oriented programming, then *Instances* would be the *Objects*. |
-| *Dimension*           | An optional dimension in the cost allocation, for example an environment like Test or Production, or a component in the architecture of the service.             |
+| *Product*             | A business product, which relies on one or multiple services. Products are somehow commercial packaging of services under the control of Product Managers.       |
+| *Product Dimension*   | An optional dimension for a product, dynamically customizable per product, for example: a product feature, a product flavor, a market or a market segment.       |
 | *Meter*               | A meter that measures the functional activity or throughput of a service or of a product.                                                                        |
 | *Amount*              | An amount, to be processed in the allocation, for example *Amortized Cost* or *On-demand Cost*                                                                   |
 | *Cost Item*           | A cost that is either coming from cloud provider billing or allocated by a provider service.                                                                     |
 | *Cost Allocation Key* | A numerical value to allocate a share of a cost. Cost share = cost * key / total keys.                                                                           |
+| *Cloud Dimension*     | A configured dimension of the cloud to preserve in the allocation. A dimension with 5 different values potentially multiplies by 5 the allocated dataset size.   |                                                                                              
+
 
 ## UML Class Diagram
 
@@ -188,6 +190,9 @@ AmountAllocationKeys = AmortizedCost:ProviderCostAllocationKey,OndemandCost:Prov
 # Do not forget to escape the % character
 DateFormat = %%Y-%%m-%%d.
 
+# The cloud dimensions, to be populated when reading cloud cost items
+CloudDimensions = AiMeterName,AiMeterUnit
+
 # The name of the default service to use for cost allocation when the service tag is missing
 DefaultService = x
 
@@ -305,6 +310,5 @@ When contributing code, please follow [this project-agnostic contribution guide]
 
 ## TODO
 
-- Cost reader for FOCUS
 - Split and dispatch of the provider meter values when CloudTagSelector is used.
 - Support product dimension in cloud tags

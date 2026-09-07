@@ -61,6 +61,10 @@ class TestConsumerCostItem(ConsumerCostItem):
         super().__init__()
         self.product_info = ""
 
+    def copy(self, consumer_cost_item: 'ConsumerCostItem'):
+        super().copy(consumer_cost_item)
+        self.product_info = consumer_cost_item.product_info
+
     def get_cost_allocation_key(self, index):
         return self.allocation_keys[index]
 
@@ -90,6 +94,22 @@ class TestAzureEaAmortizedCostReader(AzureEaAmortizedCostReader):
         cloud_resource_id = line['ResourceId']
         if cloud_resource_id:
             cost_item.tags['cloud_resource_id'] = cloud_resource_id.lower()
+
+            # Set AI Meter (test13)
+            if cloud_resource_id.startswith('/AiMeter/'): # Not real-life code, only testing
+                ai_meter_value_amount_index = self.cost_item_factory.config.amounts.index('AiMeterValue')
+                if cloud_resource_id.startswith('/AiMeter/Token1000'):
+                    cost_item.cloud_dimensions['AiMeterName'] = 'Token'
+                    cost_item.cloud_dimensions['AiMeterUnit'] = 'tkn'
+                    cost_item.amounts[ai_meter_value_amount_index] = 1000.0
+                elif cloud_resource_id.startswith('/AiMeter/Token10'):
+                    cost_item.cloud_dimensions['AiMeterName'] = 'Token'
+                    cost_item.amounts[ai_meter_value_amount_index] = 10.0
+                    cost_item.cloud_dimensions['AiMeterUnit'] = 'tkn'
+                elif cloud_resource_id.startswith('/AiMeter/Ptu100'):
+                    cost_item.cloud_dimensions['AiMeterName'] = 'ProvisionedThroughput'
+                    cost_item.amounts[ai_meter_value_amount_index] = 100.0
+                    cost_item.cloud_dimensions['AiMeterUnit'] = 'ptu'
 
         return cost_item
 
@@ -235,6 +255,9 @@ class Test(unittest.TestCase):
 
     def test_test12(self):
         self.run_allocation('test12')
+
+    def test_test13(self):
+        self.run_allocation('test13')
 
     # Auxiliary methods
     def load_further_amount_test7(self, cost_items: list[CostItem]):

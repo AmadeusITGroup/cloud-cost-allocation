@@ -1,0 +1,12 @@
+Date,ProviderService,ProviderInstance,ProviderCostAllocationKey,ConsumerService,Product,ProductMeterName,ProductMeterUnit,ProductMeterValue,ProviderMeterName1,ProviderMeterUnit1,ProviderMeterValue1
+2026-09-04,p1,p1,80,a1,,,,,,,
+2026-09-04,p1,p1,20,p2,,,,,,,
+2026-09-04,p2,p2,80,a2,,,,,,,
+2026-09-04,p2,p2,20,a3,,,,,,,
+2026-09-04,a1,a1,1,,p1,transactions,trx,8800,operations,ops,8800
+2026-09-04,a2,a2,8,,p21,transactions,trx,1478.4,operations,ops,1478.4
+2026-09-04,a2,a2,2,,p22,transactions,trx,369.6,operations,ops,369.6
+2026-09-04,a3,a3,1,,p3,,,,operations,ops,462
+2026-09-04,a3,-,1,,p3,transactions,trx,462,,,
+
+

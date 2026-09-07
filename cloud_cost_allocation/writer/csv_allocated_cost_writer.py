@@ -87,6 +87,9 @@ class CSV_AllocatedCostWriter(GenericWriter):
                     headers.extend(['ProductMeterUnit%s' % i])
                     headers.extend(['ProductMeterValue%s' % i])
 
+        # Add cloud dimensions
+        headers.extend(self.config.cloud_dimensions)
+
         return headers
 
     def export_item_base(self, cost_item, service_instance) -> dict[str]:
@@ -100,6 +103,10 @@ class CSV_AllocatedCostWriter(GenericWriter):
         data['Instance'] = cost_item.instance
         data['Tags'] = utils.serialize_tags(cost_item.tags)
         data['Currency'] = cost_item.currency
+
+        # Add cloud dimensions
+        for cloud_dimension_key, cloud_dimension_value in cost_item.cloud_dimensions.items():
+            data[cloud_dimension_key] = cloud_dimension_value
 
         # Add dimensions
         for dimension_key, dimension_value in cost_item.dimensions.items():

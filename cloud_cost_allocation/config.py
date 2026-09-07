@@ -22,6 +22,7 @@ class Config(object):
         'consumer_service_ignored_tag_values',   # type: list[str]
         'consumer_instance_tag_keys',            # type: list[str]
         'product_tag_keys',                      # type: list[str]
+        'cloud_dimensions',                      # type: list[str]
         'dimensions',                            # type: list[str]
         'dimension_tag_keys',                    # type: dict[list[str]]
         'consumer_dimension_tag_keys',           # type: dict[list[str]]
@@ -93,6 +94,12 @@ class Config(object):
         if 'TagKey' in config and 'Product' in config['TagKey']:
             for product_tag_key in self.config['TagKey']['Product'].split(","):
                 self.product_tag_keys.append(product_tag_key.strip().lower())
+
+        # Cloud dimensions
+        self.cloud_dimensions = []
+        if 'General' in config and 'CloudDimensions' in self.config['General']:
+            for cloud_dimension in self.config['General']['CloudDimensions'].split(','):
+                self.cloud_dimensions.append(cloud_dimension.strip())
 
         # Dimensions
         self.dimensions = []

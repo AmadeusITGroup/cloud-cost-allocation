@@ -17,16 +17,18 @@ class CloudCostAllocator(object):
     """
 
     __slots__ = (
-        'cost_item_factory',  # type: CostItemFactory
-        'date_str',           # type: str
-        'currency',           # type: str
-        'service_instances',  # type: dict[ServiceInstance]
+        'cost_item_factory',         # type: CostItemFactory
+        'date_str',                  # type: str
+        'currency',                  # type: str
+        'activate_cloud_dimensions', # type: bool
+        'service_instances',         # type: dict[ServiceInstance]
     )
 
     def __init__(self, cost_item_factory: CostItemFactory):
         self.cost_item_factory = cost_item_factory
         self.date_str = ""
         self.currency = ""
+        self.activate_cloud_dimensions = False
         self.service_instances = {}
 
     def allocate(self, consumer_cost_items: list[ConsumerCostItem],
@@ -43,6 +45,9 @@ class CloudCostAllocator(object):
         if not self.currency:
             error("CloudCostAllocator.currency must be set, for date " + self.date_str)
             return False
+
+        # Cloud dimensions have not been calculated yet
+        self.activate_cloud_dimensions = False
 
         # Initiate cost items with cloud cost items
         cost_items = []
@@ -94,6 +99,12 @@ class CloudCostAllocator(object):
         info("Untangling cycles, for date " + self.date_str)
         cost_items = self.untangle_cycles(cost_items)
 
+        # Break cycles, using precedence list
+        # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
+        info("Breaking cycles, for date " + self.date_str)
+        if not self.break_cycles(cost_items):
+            return False
+
         # Process default products
         cost_items = self.process_default_products(cost_items, default_product_consumer_cost_items)
 
@@ -135,43 +146,54 @@ class CloudCostAllocator(object):
                   ", for date " + self.date_str)
         cost_items = cleansed_cost_items
 
-        # Break cycles, using precedence list
-        # When a cycle is broken, ConsumerCostItem.is_removed_from_cycle is set to True at the cycle break point
-        info("Breaking cycles, for date " + self.date_str)
-        if not self.break_cycles(cost_items):
+        # Process cloud dimensions
+        if config.cloud_dimensions:  # Save run time if not needed
+            info("Processing cloud dimensions, for date " + self.date_str)
+            self.reset_instances(cost_items)
+            new_cost_items = []
+            try:
+                self.visit_for_cloud_dimensions(new_cost_items)
+            except CycleException:
+                return False
+            cost_items = new_cost_items
+
+        # Now, activate cloud dimensions
+        self.activate_cloud_dimensions = True
+
+        # Prepare allocation
+        self.reset_instances(cost_items)
+        amount_to_allocation_key_indexes = {}
+        if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
             return False
 
-        # Reset instances
-        self.reset_instances(cost_items)
-
-        # Protect against unexpected cycles
-        try:
-
-            # Build amount allocation key indexes dictionary
-            amount_to_allocation_key_indexes = {}
-            if not config.build_amount_to_allocation_key_indexes(amount_to_allocation_key_indexes, amounts):
-                return False
-
-            # Allocate costs, ignoring the keys that are using cost, and then
-            # set these keys from the allocated cost
-            if is_cost_used_as_cost_allocation_type:  # Save run time if not needed
-                info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
+        # Allocate costs, ignoring the keys that are using cost, and then
+        # set these keys from the allocated cost
+        if is_cost_used_as_cost_allocation_type:  # Save run time if not needed
+            info("Allocating costs, ignoring keys that are costs, for date " + self.date_str)
+            try:
                 self.visit_for_allocation(True, False, amount_to_allocation_key_indexes)
-                for service_instance in self.service_instances.values():
-                    service_instance_cost = [0.0] * config.nb_amounts
-                    for cost_item in service_instance.cost_items:
-                        if not cost_item.is_self_consumption():
-                            for i in range(config.nb_amounts):
-                                service_instance_cost[i] += cost_item.amounts[i]
-                    for cost_item in service_instance.cost_items:
-                        cost_item.set_cost_as_key(service_instance_cost, config)
+            except CycleException:
+                return False
+            for service_instance in self.service_instances.values():
+                service_instance_cost = [0.0] * config.nb_amounts
+                for cost_item in service_instance.cost_items:
+                    if not cost_item.is_self_consumption():
+                        for i in range(config.nb_amounts):
+                            service_instance_cost[i] += cost_item.amounts[i]
+                for cost_item in service_instance.cost_items:
+                    cost_item.set_cost_as_key(service_instance_cost, config)
 
-            # Allocate costs for services
-            info("Allocating costs, for date " + self.date_str)
+        # Allocate costs for services
+        info("Allocating costs, for date " + self.date_str)
+        try:
             self.visit_for_allocation(False, False, amount_to_allocation_key_indexes)
-
         except CycleException:
             return False
+
+        # Deduplicate meters from cloud dimensions
+        if config.cloud_dimensions:  # Save run time if not needed
+            info("Deduplicating meters from cloud dimensions, for date " + self.date_str)
+            self.deduplicate_meters_from_cloud_dimensions()
 
         return True
 
@@ -347,12 +369,61 @@ class CloudCostAllocator(object):
                     # Add cloud consumer cost item
                     new_consumer_cost_items.append(new_consumer_cost_item)
 
-    def get_service_instance(self, service: str, instance: str) -> ServiceInstance:
+    def deduplicate_meters_from_cloud_dimensions(self):
+
+        # Calculate service instance amortized costs by cloud dimension and in total
+        service_instance_amortized_cost_by_cloud_dimension = {}
+        service_instance_total_amortized_cost = {}
+        amortized_cost_index = self.cost_item_factory.config.amounts.index('AmortizedCost')
+        for service_instance in self.service_instances.values():
+            service_instance_id = service_instance.get_self_id()
+            cost_by_cloud_dimension = service_instance_amortized_cost_by_cloud_dimension.get(service_instance_id, None)
+            if cost_by_cloud_dimension is None:
+                cost_by_cloud_dimension = {}
+                service_instance_amortized_cost_by_cloud_dimension[service_instance_id] = cost_by_cloud_dimension
+            for cost_item in service_instance.cost_items:
+                if not cost_item.is_self_consumption():
+                    cost = cost_item.amounts[amortized_cost_index]
+                    cloud_dimensions_id = ServiceInstance.get_cloud_dimensions_id(cost_item.cloud_dimensions)
+                    cost_by_cloud_dimension[cloud_dimensions_id] =\
+                        cost_by_cloud_dimension.get(cloud_dimensions_id, 0.0) + cost
+                    service_instance_total_amortized_cost[service_instance_id] = \
+                        service_instance_total_amortized_cost.get(service_instance_id, 0.0) + cost
+
+        # Adjust meters proportionally to service instance amortized costs by cloud dimension, or to the number of
+        # cloud dimensions for service instances with 0 cost
+        for service_instance in self.service_instances.values():
+            service_instance_id = service_instance.get_self_id()
+            cost_by_cloud_dimension = service_instance_amortized_cost_by_cloud_dimension[service_instance_id]
+            total_cost = service_instance_total_amortized_cost.get(service_instance_id, 0.0)
+            for cost_item in service_instance.consumer_cost_items:
+                if total_cost != 0.0:
+                    cloud_dimensions_id = ServiceInstance.get_cloud_dimensions_id(cost_item.cloud_dimensions)
+                    deduplication_ratio = cost_by_cloud_dimension[cloud_dimensions_id] / total_cost
+                else:
+                    nb_cloud_dimensions = len(cost_by_cloud_dimension)
+                    if nb_cloud_dimensions != 0:
+                        deduplication_ratio = 1.0 / nb_cloud_dimensions
+                    else: # No cloud dimension: deduplication not needed
+                        deduplication_ratio = 1.0
+                for meter in cost_item.get_provider_meters():
+                    meter.value *= deduplication_ratio
+                for meter in cost_item.get_product_meters():
+                    meter.value *= deduplication_ratio
+
+    def get_service_instance(self, service: str, instance: str, cloud_dimensions: dict[str, str]) -> ServiceInstance:
+
+        # Calculate service instance id
         service_instance_id = ServiceInstance.get_id(service, instance)
-        if service_instance_id not in self.service_instances:  # Create service instance if not existing yet
+        if self.activate_cloud_dimensions:
+            service_instance_id += "|" + ServiceInstance.get_cloud_dimensions_id(cloud_dimensions)
+
+        # Get or create service instance
+        service_instance = self.service_instances.get(service_instance_id, None)
+        if service_instance is None:
             service_instance = self.cost_item_factory.create_service_instance(service, instance)
             self.service_instances[service_instance_id] = service_instance
-        return self.service_instances[service_instance_id]
+        return service_instance
 
     def process_cloud_tag_selectors(self,
                                     cost_items: list[CostItem],
@@ -697,3 +768,12 @@ class CloudCostAllocator(object):
                                                   ignore_cost_as_key,
                                                   increment_amounts,
                                                   amount_allocation_to_key_indexes)
+
+    def visit_for_cloud_dimensions(self, new_cost_items: list[CostItem]) -> None:
+        for service_instance in self.service_instances.values():
+            service_instance.reset_visit()
+        for service_instance in self.service_instances.values():
+            visited_service_instance_list = []
+            service_instance.visit_for_cloud_dimensions(visited_service_instance_list,
+                                                        self.cost_item_factory,
+                                                        new_cost_items)
