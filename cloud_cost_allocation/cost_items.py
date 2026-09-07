@@ -37,7 +37,7 @@ class Meter:
 
 class ProductDimension:
     """
-    Contains meter information
+    Contains product dimension info
     """
 
     __slots__ = (
@@ -64,13 +64,14 @@ class CostItem(ABC):
 
     __slots__ = (
         # Fields
-        'date_str',        # type: str
-        'service',         # type: str
-        'instance',        # type: str
-        'dimensions',      # type: dict[str,str]
-        'tags',            # type: dict[str,str]
-        'amounts',         # type: list[float]
-        'currency',        # type: str
+        'date_str',         # type: str
+        'service',          # type: str
+        'instance',         # type: str
+        'cloud_dimensions', # type: dict[str,str]
+        'dimensions',       # type: dict[str,str]
+        'tags',             # type: dict[str,str]
+        'amounts',          # type: list[float]
+        'currency',         # type: str
 
         # Helpers
         'nb_matching_provider_tag_selectors',  # type: int
@@ -80,6 +81,7 @@ class CostItem(ABC):
         self.date_str = ""
         self.service = ""
         self.instance = ""
+        self.cloud_dimensions = {}
         self.dimensions = {}
         self.tags = {}
         self.amounts = None
@@ -90,6 +92,7 @@ class CostItem(ABC):
         self.date_str = cost_item.date_str
         self.service = cost_item.service
         self.instance = cost_item.instance
+        self.cloud_dimensions = cost_item.cloud_dimensions.copy()
         self.dimensions = cost_item.dimensions.copy()
         self.tags = cost_item.tags.copy()
         self.currency = cost_item.currency
@@ -113,6 +116,10 @@ class CostItem(ABC):
     def get_product_meters(self) -> list[Meter]:
         # Default behavior, overridden in child classes
         return []
+
+    def get_provider_instance(self) -> str:
+        # Default behavior, overridden in child classes
+        return ''
 
     def get_provider_meters(self) -> list[Meter]:
         # Default behavior, overridden in child classes
@@ -143,7 +150,9 @@ class CostItem(ABC):
 
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
         # Default behavior, overridden in child classes
-        cloud_cost_allocator.get_service_instance(self.service, self.instance).cost_items.append(self)
+        cloud_cost_allocator.get_service_instance(self.service,
+                                                  self.instance,
+                                                  self.cloud_dimensions).cost_items.append(self)
 
     def set_product(self, product: str) -> None:
         # Default behavior, overridden in child classes
@@ -158,6 +167,14 @@ class CostItem(ABC):
                              increment_amounts: bool,
                              amount_to_allocation_key_indexes: dict[int]) -> None:
         pass
+
+    # Must be implemented in child classes
+    @abstractmethod
+    def visit_for_cloud_dimensions(self,
+                                   visited_service_instance_list: list['ServiceInstance'],
+                                   cost_item_factory: CostItemFactory,
+                                   new_cost_items: list[CostItem]) -> set[dict[str,str]]:
+        return set()
 
     # Must be implemented in child classes
     @abstractmethod
@@ -186,6 +203,16 @@ class CloudCostItem(CostItem):
                              amount_to_allocation_key_indexes: dict[int]) -> None:
         # Nothing to do
         return
+
+    def visit_for_cloud_dimensions(self,
+                                   visited_service_instance_list: list['ServiceInstance'],
+                                   cost_item_factory: CostItemFactory,
+                                   new_cost_items: list[CostItem]) -> set[dict[str,str]]:
+        new_cost_items.append(self)
+        cloud_dimensions = set()
+        cloud_dimensions.add(frozenset(self.cloud_dimensions.items()))
+        return cloud_dimensions
+
 
     def visit_for_cycles(self,
                          visited_service_instance_list: list['ServiceInstance'],
@@ -274,11 +301,13 @@ class ConsumerCostItem(CostItem):
     def get_product_meters(self) -> list[Meter]:
         return self.product_meters
 
+    def get_provider_instance(self) -> str:
+        return self.provider_instance
+
     def get_provider_meters(self) -> list[Meter]:
         return self.provider_meters
 
     def get_provider_service(self) -> str:
-        # Default behavior, overridden in child classes
         return self.provider_service
 
     def get_unallocated_product_amount(self, index: int) -> float:
@@ -310,7 +339,8 @@ class ConsumerCostItem(CostItem):
     def set_instance_links(self, cloud_cost_allocator: 'CloudCostAllocator') -> None:
         super().set_instance_links(cloud_cost_allocator)
         self.provider_service_instance = cloud_cost_allocator.get_service_instance(self.provider_service,
-                                                                                   self.provider_instance)
+                                                                                   self.provider_instance,
+                                                                                   self.cloud_dimensions)
         self.provider_service_instance.consumer_cost_items.append(self)
 
     def set_product(self, product: str) -> None:
@@ -379,6 +409,16 @@ class ConsumerCostItem(CostItem):
 
                     # Next amount
                     index += 1
+
+    def visit_for_cloud_dimensions(self,
+                                   visited_service_instance_list: list['ServiceInstance'],
+                                   cost_item_factory: CostItemFactory,
+                                   new_cost_items: list[CostItem]) -> set[dict[str,str]]:
+        assert not self.is_self_consumption()
+        # Recursively visit provider service instance
+        return self.provider_service_instance.visit_for_cloud_dimensions(visited_service_instance_list,
+                                                                         cost_item_factory,
+                                                                         new_cost_items)
 
     def visit_for_cycles(self,
                          visited_service_instance_list: list['ServiceInstance'],
@@ -586,16 +626,17 @@ class ServiceInstance(object):
     __slots__ = (
 
         # Identifiers
-        'service',   # type: str
-        'instance',  # type: str
+        'service',              # type: str
+        'instance',             # type: str
+        'cloud_dimension_set',  # type: set[dict[str, str]]
 
         # Lists of items and consumer items
         'cost_items',           # type: list[CostItem]
         'consumer_cost_items',  # type: list[ConsumerCostItem]
 
         # Flags for the visit algorithms
-        'is_visited',        # type: bool
-        'is_being_visited',  # type: bool
+        'is_visited',           # type: bool
+        'is_being_visited',     # type: bool
 
         # The dictionary from provider tag selectors to their costs for this service instance
         'provider_tag_selector_amounts',  # type: dict[str,ProviderTagSelectorAmounts]
@@ -604,6 +645,7 @@ class ServiceInstance(object):
     def __init__(self, service: str, instance: str):
         self.service = service
         self.instance = instance
+        self.cloud_dimension_set = set()
         self.cost_items = []
         self.consumer_cost_items = []
         self.is_visited = False
@@ -843,6 +885,11 @@ class ServiceInstance(object):
                             provider_tag_selector_amount.adjusted_product_amounts[index] / \
                             len(provider_tag_selector_amount.amounts_by_product_info)
 
+
+    @staticmethod
+    def get_cloud_dimensions_id(cloud_dimensions: dict[str, str]):
+        return "|".join(f"{k}={v}" for k, v in sorted(cloud_dimensions.items()))
+
     @staticmethod
     def get_id(service: str, instance: str) -> str:
         return service + '.' + instance
@@ -898,6 +945,48 @@ class ServiceInstance(object):
 
         # Set visited
         self.is_visited = True
+
+    def visit_for_cloud_dimensions(self,
+                                   visited_service_instance_list: list['ServiceInstance'],
+                                   cost_item_factory: CostItemFactory,
+                                   new_cost_items: list[CostItem]) -> set[dict[str,str]]:
+
+        # Already visited?
+        if not self.is_visited:
+
+            # Cyclic cost allocation?
+            if self.is_being_visited:
+                message = StringIO()
+                message.write("Found unexpected cost allocation cycle: ")
+                for visited_service_instance in visited_service_instance_list:
+                    message.write(visited_service_instance.get_self_id() + ",")
+                message.write(self.get_self_id())
+                error(message.getvalue())
+                raise CycleException
+
+            # Visit items and merge visited cloud cost dimensions
+            for cost_item in self.cost_items:
+                if not cost_item.is_self_consumption():
+                    self.cloud_dimension_set |= cost_item.visit_for_cloud_dimensions(visited_service_instance_list,
+                                                                                     cost_item_factory,
+                                                                                     new_cost_items)
+
+            # Add consumer cost items as new cost items
+            for cost_item in self.consumer_cost_items:
+                if self.cloud_dimension_set:
+                    for cloud_dimension in self.cloud_dimension_set:
+                        new_cost_item = cost_item_factory.create_consumer_cost_item()
+                        new_cost_item.copy(cost_item)
+                        new_cost_item.cloud_dimensions = dict(cloud_dimension)
+                        new_cost_items.append(new_cost_item)
+                else: # No cloud dimension
+                    # Service instance will get no allocated cost, but keep consumer items, as they might carry meters
+                    new_cost_items.append(cost_item)
+
+            # Set visited
+            self.is_visited = True
+
+        return self.cloud_dimension_set
 
     def visit_for_cycles(self,
                          visited_service_instance_list: list['ServiceInstance'],
