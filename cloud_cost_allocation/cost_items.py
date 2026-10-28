@@ -172,7 +172,7 @@ class CostItem(ABC):
     @abstractmethod
     def visit_for_cloud_dimensions(self,
                                    visited_service_instance_list: list['ServiceInstance'],
-                                   cost_item_factory: CostItemFactory,
+                                   cost_item_factory: 'CostItemFactory',
                                    new_cost_items: list[CostItem]) -> set[dict[str,str]]:
         return set()
 
@@ -206,7 +206,7 @@ class CloudCostItem(CostItem):
 
     def visit_for_cloud_dimensions(self,
                                    visited_service_instance_list: list['ServiceInstance'],
-                                   cost_item_factory: CostItemFactory,
+                                   cost_item_factory: 'CostItemFactory',
                                    new_cost_items: list[CostItem]) -> set[dict[str,str]]:
         new_cost_items.append(self)
         cloud_dimensions = set()
@@ -412,7 +412,7 @@ class ConsumerCostItem(CostItem):
 
     def visit_for_cloud_dimensions(self,
                                    visited_service_instance_list: list['ServiceInstance'],
-                                   cost_item_factory: CostItemFactory,
+                                   cost_item_factory: 'CostItemFactory',
                                    new_cost_items: list[CostItem]) -> set[dict[str,str]]:
         assert not self.is_self_consumption()
         # Recursively visit provider service instance
@@ -948,7 +948,7 @@ class ServiceInstance(object):
 
     def visit_for_cloud_dimensions(self,
                                    visited_service_instance_list: list['ServiceInstance'],
-                                   cost_item_factory: CostItemFactory,
+                                   cost_item_factory: 'CostItemFactory',
                                    new_cost_items: list[CostItem]) -> set[dict[str,str]]:
 
         # Already visited?
