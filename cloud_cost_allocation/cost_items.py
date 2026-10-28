@@ -173,7 +173,7 @@ class CostItem(ABC):
     def visit_for_cloud_dimensions(self,
                                    visited_service_instance_list: list['ServiceInstance'],
                                    cost_item_factory: 'CostItemFactory',
-                                   new_cost_items: list[CostItem]) -> set[dict[str,str]]:
+                                   new_cost_items: list['CostItem']) -> set[dict[str,str]]:
         return set()
 
     # Must be implemented in child classes
@@ -1074,13 +1074,7 @@ class CostItemFactory(object):
     """
 
     __slots__ = (
-        'config',                 # type: Config
-        'dimensions',             # type: list[str]
-        'nb_amounts',             # type: int
-        'nb_allocation_keys',     # type: int
-        'nb_provider_meters',     # type: int
-        'nb_product_dimensions',  # type: int
-        'nb_product_meters',      # type: int
+        'config',  # type: Config
     )
 
     def __init__(self, config: Config):
